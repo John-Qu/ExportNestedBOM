@@ -107,3 +107,33 @@ Public Function FileExists(path As String) As Boolean
     FileExists = (Len(Dir$(path)) > 0)
     On Error GoTo 0
 End Function
+
+Public Function ExtractPartCode(fileName As String) As String
+    ' 从文件名中提取代号，以空格为分隔符取前半部分的字母和数字字符串
+    Dim i As Long, result As String
+    result = ""
+    
+    ' 查找第一个空格位置
+    i = InStr(1, fileName, " ")
+    
+    ' 如果找到空格，取空格前的部分，否则使用整个文件名
+    If i > 0 Then
+        result = Left$(fileName, i - 1)
+    Else
+        result = fileName
+    End If
+    
+    ' 只保留字母和数字字符
+    Dim j As Long, ch As String, cleanResult As String
+    cleanResult = ""
+    
+    For j = 1 To Len(result)
+        ch = Mid$(result, j, 1)
+        ' 如果是字母或数字，则保留
+        If (ch >= "A" And ch <= "Z") Or (ch >= "a" And ch <= "z") Or (ch >= "0" And ch <= "9") Or ch = "-" Then
+            cleanResult = cleanResult & ch
+        End If
+    Next j
+    
+    ExtractPartCode = cleanResult
+End Function

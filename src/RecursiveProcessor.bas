@@ -108,6 +108,7 @@ Public Sub ProcessBOMRows(bomAnn As Object, swApp As Object, drawingPath As Stri
     Dim colName As Long: colName = FindColumnIndex(ta, Array("名称", "PART NAME", "Name"))
     Dim colPartNumber As Long: colPartNumber = FindColumnIndex(ta, Array("代号", "PART NUMBER", "Part Number", "PARTPATH", "零件路径"))
     Dim colAssemble As Long: colAssemble = FindColumnIndex(ta, Array("是否组装", "Is Assembly", "组装", "是否组件", "IS ASSEMBLY"))
+    Dim colItemNumber As Long: colItemNumber = FindColumnIndex(ta, Array("项目号", "ITEM NO", "Item", "Item Number", "序号", "项号"))
     Dim colPreview As Long: colPreview = 0 ' 第一列通常为缩略图
     
     If colQty < 0 Then
@@ -126,6 +127,10 @@ Public Sub ProcessBOMRows(bomAnn As Object, swApp As Object, drawingPath As Stri
         Logger_Warn "未定位到是否组装列，将按'是/Yes/Y/True/1'在最后一列尝试匹配"
         colAssemble = ta.ColumnCount - 1
     End If
+    If colItemNumber < 0 Then
+        Logger_Warn "未定位到项目号列，默认尝试第B列(1)"
+        colItemNumber = 1 ' 常见：A预览 B项目号 C PART NUMBER D数量
+    End If
     
     Dim i As Long
     For i = 1 To rows - 1 ' 跳过标题行0
@@ -135,11 +140,25 @@ Public Sub ProcessBOMRows(bomAnn As Object, swApp As Object, drawingPath As Stri
         Dim partNo As String: partNo = Trim$(ta.Text(i, colPartNumber))
         Dim partName As String: partName = Trim$(ta.Text(i, colName))
         
+        ' 获取项目号，如果项目号列为空则使用行索引
+        Dim itemNumber As String
+        itemNumber = Trim$(ta.Text(i, colItemNumber))
+        If Len(itemNumber) = 0 Then
+            itemNumber = CStr(i)
+        End If
+        
         Dim currentChain As String
+        ' 从工程图文件名中提取代号，以空格为分隔符取前半部分的字母和数字
+        Dim asmCode As String
+        asmCode = ExtractPartCode(GetFileNameNoExt(drawingPath))
+        
         If Len(parentChain) = 0 Then
-            currentChain = GetFileNameNoExt(drawingPath) & "#" & CStr(i) & ": " & qty
+            ' 顶层装配体，格式：装配体代号#项目号: 数量
+            currentChain = asmCode & "#" & itemNumber & ": " & qty
         Else
-            currentChain = parentChain & " x " & Val(ta.Text(i, colQty))
+            ' 子装配体，格式：子装配体代号#项目号: 数量 x 上层装配体代号#项目号: 数量
+            ' 使用当前装配体的代号（从工程图路径获取），而不是partNo
+            currentChain = asmCode & "#" & itemNumber & ": " & Val(ta.Text(i, colQty)) & " x " & parentChain
         End If
         
         If isAsm Then
@@ -186,13 +205,16 @@ Private Sub AddToSummary(ByRef summary As Object, ByVal partNo As String, ByVal 
     Dim item As Object
     If summary.Exists(key) Then
         Set item = summary(key)
-        item("TotalQty") = CLng(item("TotalQty")) + qty
-        item("Breakdown") = CStr(item("Breakdown")) & " + " & chain & " => " & item("TotalQty")
+        Dim oldTotal As Long: oldTotal = CLng(item("TotalQty"))
+        item("TotalQty") = oldTotal + qty
+        ' 格式：A条线 + B条线 => 总数量
+        item("Breakdown") = CStr(item("Breakdown")) & " + " & chain & " => " & (oldTotal + qty)
     Else
         Set item = CreateObject("Scripting.Dictionary")
         item.Add "PartNo", partNo
         item.Add "PartName", partName
         item.Add "TotalQty", qty
+        ' 首次添加，格式：A条线 => 数量
         item.Add "Breakdown", chain & " => " & qty
         summary.Add key, item
     End If
