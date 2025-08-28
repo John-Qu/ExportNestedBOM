@@ -1,0 +1,14 @@
+' ExportNestedBOM.swp - SolidWorks宏项目文件
+' 需要在SolidWorks中：工具->宏->新建，然后将各个.bas文件添加到项目中
+
+' 此文件用于标识这是一个SolidWorks宏项目文件
+' 实际使用时需要：
+' 1. 在SolidWorks中打开宏编辑器
+' 2. 将Main.bas、RecursiveProcessor.bas、Utils.bas、Logger.bas导入
+' 3. 运行Main.RunExportNestedBOM
+
+' 快速测试方法：
+' 1. 打开SolidWorks 2019
+' 2. 工具->宏->编辑
+' 3. 将代码粘贴到VBA编辑器中
+' 4. 按F5运行Main.RunExportNestedBOM函数
