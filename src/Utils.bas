@@ -69,7 +69,7 @@ Public Function HtmlEncode(ByVal s As String) As String
     s = Replace(s, "&", "&amp;")
     s = Replace(s, "<", "&lt;")
     s = Replace(s, ">", "&gt;")
-    s = Replace(s, "\"", "&quot;")
+    s = Replace(s, """", "&quot;")
     HtmlEncode = s
 End Function
 
