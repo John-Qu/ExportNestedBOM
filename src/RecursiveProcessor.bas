@@ -106,7 +106,7 @@ Public Sub ProcessBOMRows(bomAnn As Object, swApp As Object, drawingPath As Stri
     
     Dim colQty As Long: colQty = FindColumnIndex(ta, Array("数量", "QTY", "Qty"))
     Dim colName As Long: colName = FindColumnIndex(ta, Array("名称", "PART NAME", "Name"))
-    Dim colPartNumber As Long: colPartNumber = FindColumnIndex(ta, Array("代号", "PART NUMBER", "Part Number", "PARTPATH", "零件路径"))
+    Dim colPartNumber As Long: colPartNumber = FindColumnIndex(ta, Array("零件号", "PART NUMBER", "Part Number", "PARTPATH", "零件路径"))
     Dim colAssemble As Long: colAssemble = FindColumnIndex(ta, Array("是否组装", "Is Assembly", "组装", "是否组件", "IS ASSEMBLY"))
     Dim colItemNumber As Long: colItemNumber = FindColumnIndex(ta, Array("项目号", "ITEM NO", "Item", "Item Number", "序号", "项号"))
     Dim colPreview As Long: colPreview = 0 ' 第一列通常为缩略图
