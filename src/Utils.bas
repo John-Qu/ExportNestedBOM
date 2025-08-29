@@ -18,7 +18,7 @@ Public Sub WriteSummaryHtmlXls(ByRef summary As Object, ByVal xlsPath As String)
     Dim k As Variant
     Open xlsPath For Output As #f
     
-    Print #f, "<html><head><meta charset='utf-8'><style>"
+    Print #f, "<html><head><meta http-equiv='Content-Type' content='text/html; charset=gb2312'><style>"
     Print #f, "table{border-collapse:collapse;width:100%;font-family:Arial,sans-serif}"
     Print #f, "td,th{border:1px solid #999;padding:8px;text-align:left}"
     Print #f, "th{background-color:#f2f2f2;font-weight:bold}"
