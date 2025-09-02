@@ -1,0 +1,37 @@
+# SolidWorks BOM导出工具 .gitignore
+
+# 操作系统临时文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# 临时文件和日志
+*.log
+*_run.log
+*.tmp
+~$*
+
+# VBA和Office临时文件
+*.xlk
+*.~vb
+
+# 编译输出和备份
+*.bak
+*.swp
+*.swo
+
+# 不忽略SolidWorks宏文件（这是需要分享的）
+!src/ExportNestedBOM.swp
+
+# 可能包含敏感信息的文件
+*.env
+*.key
+
+# 其他项目特定忽略
+/temp/
+/output/
