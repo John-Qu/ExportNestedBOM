@@ -1,0 +1,17 @@
+<html><head><meta charset='utf-8'><style>
+table{border-collapse:collapse;width:100%;font-family:Arial,sans-serif}
+td,th{border:1px solid #999;padding:8px;text-align:left}
+th{background-color:#f2f2f2;font-weight:bold}
+tr:nth-child(even){background-color:#f9f9f9}
+</style></head><body>
+<h2>BOM汇总表</h2>
+<p>生成时间：2025/8/28 16:52:11</p>
+<p>零件种类：6</p>
+<table><tr><th>代号</th><th>名称</th><th>总数量</th><th>分解链</th></tr>
+<tr><td>TS180-01Z-003 四孔平板</td><td>四孔平板</td><td>1</td><td>TS180-01Z-01Z#10: 1 =&gt; 1</td></tr>
+<tr><td>TS180-01Z-004 中空立柱</td><td>中空立柱</td><td>4</td><td>TS180-01Z-02Z#10: 1 x TS180-01Z-01Z#20: 4 =&gt; 4</td></tr>
+<tr><td>TS180-01Z-005 四眼小板</td><td>四眼小板</td><td>4</td><td>TS180-01Z-02Z#20: 1 x TS180-01Z-01Z#20: 4 =&gt; 4</td></tr>
+<tr><td>GB_FASTENER_WASHER_SMWC 6</td><td></td><td>17</td><td>TS180-01Z-02Z#30: 4 x TS180-01Z-01Z#20: 4 =&gt; 16 + TS180-01Z-01Z#40: 1 =&gt; 17</td></tr>
+<tr><td>GB_FASTENER_BOLT_HHBFTC M6X20-N</td><td></td><td>18</td><td>TS180-01Z-02Z#40: 4 x TS180-01Z-01Z#20: 4 =&gt; 16 + TS180-01Z-01Z#30: 2 =&gt; 18</td></tr>
+<tr><td>TS180-01Z-03Z 滚珠轴承</td><td>滚珠轴承</td><td>4</td><td>TS180-01Z-02Z#50: 1 x TS180-01Z-01Z#20: 4 =&gt; 4</td></tr>
+</table></body></html>
