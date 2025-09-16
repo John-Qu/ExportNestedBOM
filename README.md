@@ -38,9 +38,9 @@
 该宏用于在导出BOM/统计前，对模型文件补齐或修正自定义属性。  
 - 源码文件：
   - 窗体：src/frmProps.frm
-  - 宏：src/填入自定义属性1.bas（入口过程：Run_AddCustomProps）
+  - 宏：src/UpdateProperties.bas（入口过程：Run_AddCustomProps）
 - 运行方式（SolidWorks宏编辑器中）：
-  1) 打开SolidWorks → 工具 → 宏 → 编辑；在VBA编辑器中导入窗体“frmProps”和模块“填入自定义属性1.bas”
+  1) 打开SolidWorks → 工具 → 宏 → 编辑；在VBA编辑器中导入窗体“frmProps”和模块“UpdateProperties.bas”
   2) 运行 Run_AddCustomProps
   3) 在弹窗中选择：
      - 是：处理当前打开文件
