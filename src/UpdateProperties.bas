@@ -45,7 +45,10 @@ Private Sub ProcessActiveDoc()
         MsgBox "没有打开的模型文件。", vbExclamation
         Exit Sub
     End If
-    
+
+    ' 新增：仅按名称/内容匹配删除相关方程式 + 删除指定属性
+    PreClean_RemoveEquationsAndProps swModel
+
     Dim names As Variant, values As Variant, fileInfo As String
     BuildPropArrays swModel, names, values, fileInfo
     
@@ -98,6 +101,9 @@ Private Sub ProcessFolderBatch()
             If Not swModel Is Nothing Then
                 processed = processed + 1
                 
+                ' 新增：预清理（仅删除命中关键词的方程式 + 删除指定属性）
+                PreClean_RemoveEquationsAndProps swModel
+
                 Dim names As Variant, values As Variant, fileInfo As String
                 BuildPropArrays swModel, names, values, fileInfo
                 
@@ -409,3 +415,85 @@ Private Function AddTrailingSlash(ByVal p As String) As String
 End Function
 
 
+' 仅删除名称/内容包含目标关键词的方程式；并删除对应属性（文档级 + 所有配置）
+Private Sub PreClean_RemoveEquationsAndProps(ByVal swModel As Object)
+    On Error Resume Next
+
+    Dim targets As Variant
+    targets = Array("项目代号代码", "名称代码", "代号代码")
+
+    ' 1) 过滤删除方程式（EquationMgr）
+    Dim eqMgr As Object
+    Set eqMgr = swModel.GetEquationMgr
+    If Not eqMgr Is Nothing Then
+        Dim eqCount As Long
+        eqCount = eqMgr.GetCount
+        If eqCount > 0 Then
+            Dim i As Long
+            For i = eqCount - 1 To 0 Step -1
+                Dim eqText As String
+                eqText = CStr(eqMgr.Equation(i)) ' 形如："\"D1@Sketch1\" = 5mm" 或含表达式文本
+                If ContainsAny(eqText, targets) Then
+                    eqMgr.Delete i
+                End If
+            Next i
+        End If
+    End If
+
+    ' 2) 删除指定的自定义属性（文档级）
+    Dim cpmDoc As Object
+    Set cpmDoc = swModel.Extension.CustomPropertyManager("")
+    If Not cpmDoc Is Nothing Then
+        Dim k As Long
+        For k = LBound(targets) To UBound(targets)
+            cpmDoc.Delete CStr(targets(k))
+        Next k
+    End If
+
+    ' 3) 删除指定的自定义属性（所有配置）
+    Dim cfgMgr As Object
+    Set cfgMgr = swModel.ConfigurationManager
+    If Not cfgMgr Is Nothing Then
+        Dim vCfgNames As Variant
+        vCfgNames = cfgMgr.GetConfigurationNames
+        If Not IsEmpty(vCfgNames) Then
+            Dim idx As Long, cfgName As String
+            For idx = LBound(vCfgNames) To UBound(vCfgNames)
+                cfgName = CStr(vCfgNames(idx))
+                Dim cpmCfg As Object
+                Set cpmCfg = swModel.Extension.CustomPropertyManager(cfgName)
+                If Not cpmCfg Is Nothing Then
+                    For k = LBound(targets) To UBound(targets)
+                        cpmCfg.Delete CStr(targets(k))
+                    Next k
+                End If
+            Next idx
+        End If
+    End If
+
+    On Error GoTo 0
+End Sub
+
+Private Sub PreClean_RemoveEquationsAndProps(ByVal swModel As Object)
+    Dim i As Long
+    For i = LBound(names) To UBound(names)
+        If checks(i) Then
+            ' 对“自定义”和“配置特定”都执行强力写入
+            WriteProp_DeleteAndAdd cpmDoc, CStr(names(i)), CStr(values(i))
+            WriteProp_DeleteAndAdd cpmCfg, CStr(names(i)), CStr(values(i))
+        End If
+    Next i
+    On Error GoTo 0
+End Sub
+
+' 文本包含任一目标关键字则返回 True（不区分大小写）
+Private Function ContainsAny(ByVal text As String, ByVal targets As Variant) As Boolean
+    Dim t As Variant
+    For Each t In targets
+        If Len(text) > 0 And InStr(1, text, CStr(t), vbTextCompare) > 0 Then
+            ContainsAny = True
+            Exit Function
+        End If
+    Next t
+    ContainsAny = False
+End Function
