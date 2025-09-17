@@ -53,7 +53,17 @@ Public Sub RunExportNestedBOM()
     topAsmName = GetFileNameNoExt(drawingPath)
     
     Dim startTime As Double: startTime = Timer
-    
+
+    ' 新增：导出前参与性确认（可阻断）
+    If CONFIRM_BEFORE_EXPORT Then
+        Dim okConfirm As Boolean
+        okConfirm = ConfirmSubAssemblyParticipation(swApp, drawingPath)
+        If Not okConfirm Then
+            Logger_Warn "用户在参与性确认阶段取消或存在阻断性问题，流程中止。"
+            Exit Sub
+        End If
+    End If
+
     ProcessDrawingRecursive swApp, drawingPath, 1, 0, visited, summary, topAsmName, ""
     
     Dim endTime As Double: endTime = Timer

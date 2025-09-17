@@ -219,3 +219,214 @@ Private Sub AddToSummary(ByRef summary As Object, ByVal partNo As String, ByVal 
         summary.Add key, item
     End If
 End Sub
+
+' 新增：导出前的子装配参与性确认（生成CSV并提示是否继续）
+Public Function ConfirmSubAssemblyParticipation(swApp As Object, drawingPath As String) As Boolean
+    On Error GoTo EH
+    Dim items As Collection: Set items = New Collection
+    Dim visited As Object: Set visited = CreateObject("Scripting.Dictionary")
+
+    ' 扫描顶层工程图的子装配状态（递归深度与导出一致，但不执行导出）
+    ScanParticipationRecursive swApp, drawingPath, 1, visited, items
+
+    ' 统计
+    Dim totalFlagYes As Long, readyCount As Long
+    Dim cntNoDrw As Long, cntNoBom As Long, cntMissFlag As Long
+    Dim it As Variant
+    For Each it In items
+        If CBool(it("IsAsmFlag")) Then
+            totalFlagYes = totalFlagYes + 1
+        End If
+        Select Case CStr(it("Status"))
+            Case "Included-Ready"
+                readyCount = readyCount + 1
+            Case "Skipped-NoDrawing"
+                cntNoDrw = cntNoDrw + 1
+            Case "Skipped-NoBOMTable"
+                cntNoBom = cntNoBom + 1
+            Case "Skipped-PropertyMissing"
+                cntMissFlag = cntMissFlag + 1
+        End Select
+    Next
+
+    Dim coverage As Double
+    If totalFlagYes > 0 Then coverage = readyCount / totalFlagYes Else coverage = 1#
+
+    ' 写出CSV检查表
+    Dim outCsv As String
+    outCsv = GetFileFolder(drawingPath) & "\" & GetFileNameNoExt(drawingPath) & "_参与性确认.csv"
+    WriteParticipationCsv items, outCsv
+
+    ' 汇总与交互
+    Dim msg As String
+    msg = "子装配参与性确认：" & vbCrLf & _
+          "标注“是”的子装配： " & totalFlagYes & vbCrLf & _
+          "可导出(有图+有BOM)： " & readyCount & vbCrLf & _
+          "缺工程图： " & cntNoDrw & vbCrLf & _
+          "无BOM表： " & cntNoBom & vbCrLf & _
+          "疑似漏标(发现同名工程图)： " & cntMissFlag & vbCrLf & _
+          "覆盖率： " & Format(coverage, "0.0%") & vbCrLf & vbCrLf & _
+          "已生成检查表：" & outCsv & vbCrLf & _
+          "是否继续执行导出？"
+
+    Logger_Info "参与性确认输出：" & outCsv & _
+                " | 标注是=" & totalFlagYes & ", 可导出=" & readyCount & _
+                ", 无图=" & cntNoDrw & ", 无BOM=" & cntNoBom & ", 疑似漏标=" & cntMissFlag
+
+    If (cntNoDrw + cntNoBom + cntMissFlag) > 0 And UCase$(CONFIRM_BLOCK_ON_SKIPPED) = "BLOCK" Then
+        MsgBox "检测到阻断性问题（依据配置），流程中止。" & vbCrLf & vbCrLf & msg, vbExclamation
+        ConfirmSubAssemblyParticipation = False
+        Exit Function
+    End If
+
+    Dim ans As VbMsgBoxResult
+    ans = MsgBox(msg, vbQuestion + vbYesNo, "子装配参与性确认")
+    ConfirmSubAssemblyParticipation = (ans = vbYes)
+    Exit Function
+EH:
+    Logger_Error "参与性确认出错：" & Err.Number & ": " & Err.Description
+    ConfirmSubAssemblyParticipation = True ' 容错：确认环节失败不阻断（可按需调整）
+End Function
+
+' 新增：递归扫描参与性状态（不导出，只检查）
+Private Sub ScanParticipationRecursive(swApp As Object, drawingPath As String, depth As Integer, _
+    ByRef visited As Object, ByRef items As Collection)
+    On Error GoTo EH
+    If depth > 10 Then Exit Sub
+    If Not FileExists(drawingPath) Then Exit Sub
+
+    Dim key As String: key = "scan|" & LCase$(drawingPath)
+    If visited.Exists(key) Then Exit Sub
+    visited.Add key, True
+
+    Dim errs As Long, warns As Long
+    Dim swModel As Object
+    Set swModel = swApp.OpenDoc6(drawingPath, 3, 1, "", errs, warns) ' swDocDRAWING=3
+    If swModel Is Nothing Then GoTo Clean
+
+    Dim swDraw As Object: Set swDraw = swModel
+    Dim bomAnn As Object: Set bomAnn = FindFirstBOM(swDraw)
+
+    If bomAnn Is Nothing Then
+        ' 顶层无BOM：无从扫描子装配，记录为提示但不中止
+        Logger_Warn "确认阶段：未找到BOM表（扫描受限）：" & drawingPath
+        GoTo CloseDoc
+    End If
+
+    Dim ta As Object: Set ta = bomAnn ' TableAnnotation
+    Dim rows As Long: rows = ta.RowCount
+    Dim colQty As Long: colQty = FindColumnIndex(ta, Array("数量", "QTY", "Qty"))
+    Dim colName As Long: colName = FindColumnIndex(ta, Array("名称", "PART NAME", "Name"))
+    Dim colPartNumber As Long: colPartNumber = FindColumnIndex(ta, Array("零件号", "PART NUMBER", "Part Number", "PARTPATH", "零件路径"))
+    Dim colAssemble As Long: colAssemble = FindColumnIndex(ta, Array("是否组装", "Is Assembly", "组装", "是否组件", "IS ASSEMBLY"))
+
+    If colQty < 0 Then colQty = 3
+    If colPartNumber < 0 Then colPartNumber = 2
+    If colName < 0 Then colName = 5
+    If colAssemble < 0 Then colAssemble = ta.ColumnCount - 1
+
+    Dim i As Long
+    For i = 1 To rows - 1
+        Dim partNo As String: partNo = Trim$(ta.Text(i, colPartNumber))
+        Dim partName As String: partName = Trim$(ta.Text(i, colName))
+        Dim flagIsAsm As Boolean: flagIsAsm = IsAssembleCell(ta.Text(i, colAssemble))
+
+        ' Heuristic：同目录下是否存在同名工程图
+        Dim childDrw As String
+        childDrw = GetFileFolder(drawingPath) & "\" & partNo & ".slddrw"
+        Dim hasDrw As Boolean: hasDrw = FileExists(childDrw)
+        Dim hasBom As Boolean: hasBom = False
+
+        Dim status As String, reason As String
+        If flagIsAsm Then
+            If Not hasDrw Then
+                status = "Skipped-NoDrawing": reason = "标注为子装配但未找到工程图"
+            Else
+                ' 检查子工程图是否有BOM
+                Dim e1 As Long, w1 As Long, m As Object
+                Set m = swApp.OpenDoc6(childDrw, 3, 1, "", e1, w1)
+                If Not m Is Nothing Then
+                    Dim b As Object: Set b = FindFirstBOM(m)
+                    If Not b Is Nothing Then
+                        hasBom = True
+                        status = "Included-Ready": reason = "可导出（有图+有BOM）"
+                    Else
+                        status = "Skipped-NoBOMTable": reason = "工程图中未找到BOM表"
+                    End If
+                    On Error Resume Next
+                    swApp.CloseDoc m.GetTitle
+                    On Error GoTo 0
+                Else
+                    status = "Skipped-NoDrawing": reason = "工程图无法打开"
+                End If
+            End If
+        Else
+            If hasDrw Then
+                status = "Skipped-PropertyMissing": reason = "疑似漏标（存在同名工程图）"
+            Else
+                ' 非子装配，且无同名工程图：对确认表噪音较大，可跳过不记录
+                GoTo ContinueNext
+            End If
+        End If
+
+        ' 记录条目
+        Dim item As Object: Set item = CreateObject("Scripting.Dictionary")
+        item.Add "PartNo", partNo
+        item.Add "PartName", partName
+        item.Add "IsAsmFlag", flagIsAsm
+        item.Add "DrawingExists", hasDrw
+        item.Add "BomExists", hasBom
+        item.Add "Status", status
+        item.Add "Reason", reason
+        items.Add item
+
+ContinueNext:
+    Next
+
+CloseDoc:
+    On Error Resume Next
+    swApp.CloseDoc swModel.GetTitle
+    On Error GoTo 0
+Clean:
+    On Error Resume Next
+    visited.Remove key
+    On Error GoTo 0
+    Exit Sub
+EH:
+    Logger_Error "ScanParticipationRecursive 出错：" & Err.Number & ": " & Err.Description & " (文件:" & drawingPath & ")"
+    Resume Clean
+End Sub
+
+' 新增：输出CSV检查表
+Private Sub WriteParticipationCsv(items As Collection, csvPath As String)
+    On Error GoTo EH
+    Dim f As Integer: f = FreeFile
+    Open csvPath For Output As #f
+    Print #f, "PartNo,PartName,IsAsmFlag,DrawingExists,BomExists,Status,Reason"
+    Dim it As Variant
+    For Each it In items
+        Print #f, CsvEscape(it("PartNo")) & "," & _
+                  CsvEscape(it("PartName")) & "," & _
+                  IIf(CBool(it("IsAsmFlag")), "1", "0") & "," & _
+                  IIf(CBool(it("DrawingExists")), "1", "0") & "," & _
+                  IIf(CBool(it("BomExists")), "1", "0") & "," & _
+                  CsvEscape(it("Status")) & "," & _
+                  CsvEscape(it("Reason"))
+    Next
+    Close #f
+    Exit Sub
+EH:
+    On Error Resume Next
+    Close #f
+    On Error GoTo 0
+    Logger_Error "写入参与性CSV失败：" & Err.Number & ": " & Err.Description
+End Sub
+
+Private Function CsvEscape(ByVal s As String) As String
+    If InStr(s, ",") > 0 Or InStr(s, """") > 0 Or InStr(s, vbCr) > 0 Or InStr(s, vbLf) > 0 Then
+        s = Replace$(s, """", """""")
+        CsvEscape = """" & s & """"
+    Else
+        CsvEscape = s
+    End If
+End Function
