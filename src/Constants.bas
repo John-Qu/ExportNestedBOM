@@ -16,6 +16,19 @@ Public Const DRAWING_EXT As String = ".slddrw"
 Public Const ASSEMBLY_EXT As String = ".sldasm"
 Public Const PART_EXT As String = ".sldprt"
 
+' 错误码定义
+Public Const ERR_SOLIDWORKS_NOT_FOUND As Long = 1001
+Public Const ERR_FILE_NOT_FOUND As Long = 1002
+Public Const ERR_NO_BOM_TABLE As Long = 1003
+Public Const ERR_CIRCULAR_REFERENCE As Long = 1004
+Public Const ERR_DIRECTORY_NOT_WRITABLE As Long = 1005
+Public Const ERR_RECURSION_DEPTH_EXCEEDED As Long = 1006
+
+' 子装配参与性确认配置
+Public Const CONFIRM_BEFORE_EXPORT As Boolean = True          ' 是否启用导出前确认
+' 枚举： "none" = 不阻断；"block" = 有任何 Skipped 则阻断
+Public Const CONFIRM_BLOCK_ON_SKIPPED As String = "none"
+
 ' 默认列名映射
 Public Function GetQuantityColumnNames() As Variant
     GetQuantityColumnNames = Array("数量", "QTY", "Qty", "QUANTITY", "数量(QTY)")
@@ -37,16 +50,3 @@ End Function
 Public Function GetAssemblyTrueValues() As Variant
     GetAssemblyTrueValues = Array("是", "Y", "YES", "TRUE", "1", "组装", "装配")
 End Function
-
-' 错误码定义
-Public Const ERR_SOLIDWORKS_NOT_FOUND As Long = 1001
-Public Const ERR_FILE_NOT_FOUND As Long = 1002
-Public Const ERR_NO_BOM_TABLE As Long = 1003
-Public Const ERR_CIRCULAR_REFERENCE As Long = 1004
-Public Const ERR_DIRECTORY_NOT_WRITABLE As Long = 1005
-Public Const ERR_RECURSION_DEPTH_EXCEEDED As Long = 1006
-
-' 子装配参与性确认配置
-Public Const CONFIRM_BEFORE_EXPORT As Boolean = True          ' 是否启用导出前确认
-' 枚举： "none" = 不阻断；"block" = 有任何 Skipped 则阻断
-Public Const CONFIRM_BLOCK_ON_SKIPPED As String = "none"
