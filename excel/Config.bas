@@ -1,23 +1,12 @@
-Attribute VB_Name = "Config"
+' Attribute VB_Name = "Config"
 Option Explicit
 
 ' 基本路径与外部资源
-Public Const CFG_MAPPING_WORKBOOK_PATH As String = "TS180/lists.xlsm"
+Public Const CFG_MAPPING_WORKBOOK_PATH As String = "FomatBOM_ExportPDF.xlsm"
 Public Const CFG_MAPPING_SHEET As String = "ToolboxNames"
-
-' 关键词（机箱模型分类）
-Public Function CFG_Keywords_Enclosure() As Variant
-    CFG_Keywords_Enclosure = Array("机箱", "箱体")
-End Function
-
-' 布尔真值集合（大小写不敏感、去空白后比较）
-Public Function CFG_BooleanTrueValues() As Variant
-    CFG_BooleanTrueValues = Array("是", "yes", "y", "j", "shi", "要")
-End Function
-
 ' 图标字符
-Public Const CFG_Icon_True As String = "○"
-Public Const CFG_Icon_False As String = "×"
+Public Const CFG_Icon_True As String = "◉"
+Public Const CFG_Icon_False As String = "✕"
 
 ' 字体配置（不可用时 Utils 里会回退）
 Public Const CFG_Font_Primary As String = "汉仪长仿宋体"
@@ -30,6 +19,19 @@ Public Const CFG_PDF_OutputDir As String = "PDF"
 Public Const CFG_Page_PaperSizeA4 As Integer = 9  ' xlPaperA4
 Public Const CFG_Page_OrientationLandscape As Integer = 2 ' xlLandscape
 Public Const CFG_Page_Zoom As Integer = 100
+
+' 是否启用 PDFCreator 合并（若机器未安装则在运行时自动降级为 False）
+Public Const CFG_Enable_PDFCreator_Merge As Boolean = True
+
+' 关键词（机箱模型分类）
+Public Function CFG_Keywords_Enclosure() As Variant
+    CFG_Keywords_Enclosure = Array("机箱", "箱体")
+End Function
+
+' 布尔真值集合（大小写不敏感、去空白后比较）
+Public Function CFG_BooleanTrueValues() As Variant
+    CFG_BooleanTrueValues = Array("是", "yes", "y", "j", "shi", "要")
+End Function
 
 ' 列别名与最终列序（规范）
 ' 最终列序 From A to R:
@@ -51,7 +53,7 @@ Public Function CFG_HeaderRenamePairs() As Object
     dict("是否机加") = "加"
     dict("是否钣金") = "钣"
     dict("SUPPLIER") = "渠道"
-    dict("材 料") = "材料" ' 去掉中间空格
+    dict("材     料") = "材料" ' 去掉中间空格
     Set CFG_HeaderRenamePairs = dict
 End Function
 
@@ -62,13 +64,13 @@ Public Function CFG_HeaderAliases() As Object
 
     ' 每个标准名 -> 别名数组
     m("文档预览") = Array("预览", "Document Preview", "Preview")
-    m("序号") = Array("序号", "Index", "No.")
-    m("零件号") = Array("零件号", "PartNo", "Part No", "Part Number", "零件编号")
+    m("序号") = Array("序号", "Index", "No.", "项目号")
+    m("零件号") = Array("零件号", "PartNo", "Part No", "Part Number", "PART NUMBER", "零件编号")
     m("代号") = Array("代号", "Code", "Key")
     m("名称") = Array("名称", "Name", "Description")
     m("数量") = Array("数量", "Qty", "Quantity")
-    m("材料") = Array("材料", "Material")
-    m("处理") = Array("处理", "Process", "Treatment")
+    m("材料") = Array("材料", "材     料", "Material")
+    m("处理") = Array("处理", "处理方式", "Treatment")
     m("渠道") = Array("渠道", "Supplier", "SUPPLIER")
     m("型号") = Array("型号", "Model", "Type")
     m("组") = Array("组", "是否组装", "Assemble")
@@ -76,9 +78,9 @@ Public Function CFG_HeaderAliases() As Object
     m("加") = Array("加", "是否机加", "Machine")
     m("钣") = Array("钣", "是否钣金", "Sheet")
     m("备注") = Array("备注", "Remark", "Remarks", "Note")
-    m("零件名称") = Array("零件名称", "PartName", "Component Name")
-    m("规格") = Array("规格", "Spec", "Specification")
-    m("标准") = Array("标准", "Standard")
+    m("零件名称") = Array("零件名称", "PART NAME", "Component Name")
+    m("规格") = Array("规格", "Spec", "SPECIFICATION")
+    m("标准") = Array("标准", "Standard", "STANDARD")
     CFG_HeaderAliases = m
 End Function
 
@@ -90,5 +92,3 @@ Public Function CFG_AlignRightHeaders() As Variant
     CFG_AlignRightHeaders = Array("数量")
 End Function
 
-' 是否启用 PDFCreator 合并（若机器未安装则在运行时自动降级为 False）
-Public Const CFG_Enable_PDFCreator_Merge As Boolean = True

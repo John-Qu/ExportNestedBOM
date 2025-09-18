@@ -1,4 +1,4 @@
-Attribute VB_Name = "Utils"
+' Attribute VB_Name = "Utils"
 Option Explicit
 
 Public Function EnsureDirExists(ByVal path As String) As Boolean
@@ -162,7 +162,7 @@ Public Sub ApplyHeaderRenameRules(ByVal ws As Worksheet)
             ws.Cells(1, c).Value = dict(h)
         Else
             ' 单独处理 "材 料"
-            If StrComp(h, "材 料", vbTextCompare) = 0 Then ws.Cells(1, c).Value = "材料"
+            If StrComp(h, "材     料", vbTextCompare) = 0 Then ws.Cells(1, c).Value = "材料"
         End If
     Next c
 End Sub

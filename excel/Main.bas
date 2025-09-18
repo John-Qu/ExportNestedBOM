@@ -1,4 +1,4 @@
-Attribute VB_Name = "Main"
+' Attribute VB_Name = "Main"
 Option Explicit
 
 ' 入口一：仅格式化当前工作簿的 BOM 数据表，并导出各工作表 PDF（不做总汇总与分类）

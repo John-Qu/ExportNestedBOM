@@ -1,4 +1,4 @@
-Attribute VB_Name = "PdfExport"
+' Attribute VB_Name = "PdfExport"
 Option Explicit
 
 ' 将某个工作表导出为 PDF 到默认目录
@@ -7,7 +7,7 @@ Public Sub ExportWorksheetToPdf(ByVal ws As Worksheet, Optional ByVal outputDir 
     If Len(outputDir) = 0 Then
         outputDir = ActiveWbDir() & Application.PathSeparator & CFG_PDF_OutputDir
     End If
-    Call EnsureDirExists(outputDir)
+    Call Utils.EnsureDirExists(outputDir)
 
     Dim fname As String
     fname = CleanFileName(ws.Parent.Name & "_" & ws.Name & ".pdf")
@@ -29,7 +29,7 @@ End Sub
 Public Sub ExportWorkbookSheetsToPdf(ByVal wb As Workbook, Optional ByVal outputDir As String = "")
     On Error GoTo EH
     If Len(outputDir) = 0 Then outputDir = ActiveWbDir() & Application.PathSeparator & CFG_PDF_OutputDir
-    EnsureDirExists outputDir
+    Utils.EnsureDirExists outputDir
 
     Dim ws As Worksheet
     For Each ws In wb.Worksheets

@@ -1,4 +1,4 @@
-Attribute VB_Name = "SingleSheetFormatter"
+' Attribute VB_Name = "SingleSheetFormatter"
 Option Explicit
 
 ' S1-S8：格式化当前工作簿的所有数据工作表（可按需过滤）

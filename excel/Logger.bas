@@ -1,4 +1,4 @@
-Attribute VB_Name = "Logger"
+' Attribute VB_Name = "Logger"
 Option Explicit
 
 Private g_logFilePath As String
@@ -19,7 +19,7 @@ Public Sub LogInit(Optional ByVal baseDir As String = "")
 
     Dim logsDir As String
     logsDir = dirPath & Application.PathSeparator & "logs"
-    Call EnsureDirExists(logsDir)
+    Call Utils.EnsureDirExists(logsDir)
 
     Dim stamp As String
     stamp = Format(Now, "yyyymmdd-hhnnss")

@@ -1,4 +1,4 @@
-Attribute VB_Name = "SummaryProcessor"
+' Attribute VB_Name = "SummaryProcessor"
 Option Explicit
 
 ' 从“顶层装配体\汇总”驱动，生成“总 BOM 清单”和分类表，并保持与单表一致的格式规范
