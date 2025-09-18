@@ -12,7 +12,7 @@ End Function
 
 ' 布尔真值集合（大小写不敏感、去空白后比较）
 Public Function CFG_BooleanTrueValues() As Variant
-    CFG_BooleanTrueValues = Array("是", "yes", "y", "j")
+    CFG_BooleanTrueValues = Array("是", "yes", "y", "j", "shi", "要")
 End Function
 
 ' 图标字符

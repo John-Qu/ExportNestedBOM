@@ -107,7 +107,7 @@
 ### 日志查看
 程序运行过程中会生成详细日志，位置：`[工程图文件夹]\[装配体名称]_run.log`
 
-## 项目结构
+## 项目结构（补充：excel/ 目录）
 
 ```
 ExportNestedBOM/
@@ -129,6 +129,14 @@ ExportNestedBOM/
 ├── examples/                      # 示例和使用场景
 │   └── 示例使用场景.md           # 详细使用示例
 └── README.md                      # 项目说明文档
+├── excel/                        # Excel 2016 运行的模块（BOM表整理与PDF导出）
+│   ├── Config.bas
+│   ├── Logger.bas
+│   ├── Utils.bas
+│   ├── SingleSheetFormatter.bas
+│   ├── SummaryProcessor.bas
+│   ├── PdfExport.bas
+│   └── Main.bas
 ```
 
 ## 开发者信息
@@ -180,3 +188,38 @@ ExportNestedBOM/
 
 提示：
 - “覆盖率”与“统计完整性差距”指标会在汇总中展示，便于快速评估导出质量。
+
+## Excel 2016 模块（BOM表整理与PDF导出）
+
+说明：
+- 本模块在 Excel 2016 内运行，无需依赖 SolidWorks 运行时，完成“单表规范化、PDF 导出、总汇总与分类生成”。
+- 模块位置：excel/ 目录。采用 Late Binding，无需在 Excel 勾选外部引用。
+
+模块清单与职责：
+- Config.bas：全局配置（映射表路径、布尔真值、字体、打印/PDF、是否启用 PDF 合并等）
+- Logger.bas：日志输出到工作簿同级 logs/ 目录
+- Utils.bas：通用函数（标题别名、列重排、打印/页眉页脚、目录/文件工具）
+- SingleSheetFormatter.bas：单工作表 S1-S8 规范化（映射替换、标题重命名、列重排、布尔图标化、字体与对齐、打印设置）
+- SummaryProcessor.bas：以“汇总”驱动生成“总 BOM 清单”和分类表（外购件/钣金件/机箱模型），并规范化格式
+- PdfExport.bas：按工作表导出为 PDF（默认使用 ExportAsFixedFormat），预留 PDFCreator 合并占位
+- Main.bas：入口过程（Run_FormatAndExport_CurrentWorkbook / Run_BuildSummary_And_Export / Run_FullPipeline）
+
+在 Excel 导入与运行：
+1) 打开 Excel 2016，Alt+F11 打开 VBA 编辑器
+2) 工程右键 → 导入文件 → 依次导入 excel 目录下 .bas 文件
+3) Excel 菜单“开发工具” → 宏 → 运行以下入口之一：
+   - Main.Run_FormatAndExport_CurrentWorkbook：仅规范化当前工作簿的所有数据表并导出各表 PDF
+   - Main.Run_BuildSummary_And_Export：基于当前工作簿“汇总”表，生成“总 BOM 清单”和分类表，并导出 PDF
+   - Main.Run_FullPipeline：先规范化，再生成总汇总与分类，最后导出 PDF
+
+配置要点（可在 Config.bas 中修改）：
+- CFG_MAPPING_WORKBOOK_PATH/CFG_MAPPING_SHEET：Toolbox 名映射表路径与工作表名（默认 TS180/lists.xlsm、ToolboxNames）
+- CFG_BooleanTrueValues/CFG_Icon_True/CFG_Icon_False：布尔真值集合与展示图标（○/×）
+- 字体与回退：CFG_Font_Primary/CFG_Font_Fallback
+- 输出目录：CFG_PDF_OutputDir（默认“PDF”）
+- 打印设置：A4 横向、100% 缩放、B:O 打印区域与页眉页脚（左=目录名，中=文件名，右=最后修改日期）
+- 合并策略：CFG_Enable_PDFCreator_Merge（默认 True；未检测到 PDFCreator COM 时自动降级为仅导出）
+
+注意：
+- 默认优先使用 ExportAsFixedFormat 导出 PDF；PDFCreator 合并因版本差异保留为占位提示（可按本机版本补全）。
+- 列标题容错：已内置别名与“材 料”→“材料”的清洗。
