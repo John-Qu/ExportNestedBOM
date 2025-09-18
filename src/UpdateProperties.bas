@@ -474,18 +474,6 @@ Private Sub PreClean_RemoveEquationsAndProps(ByVal swModel As Object)
     On Error GoTo 0
 End Sub
 
-Private Sub PreClean_RemoveEquationsAndProps(ByVal swModel As Object)
-    Dim i As Long
-    For i = LBound(names) To UBound(names)
-        If checks(i) Then
-            ' 对“自定义”和“配置特定”都执行强力写入
-            WriteProp_DeleteAndAdd cpmDoc, CStr(names(i)), CStr(values(i))
-            WriteProp_DeleteAndAdd cpmCfg, CStr(names(i)), CStr(values(i))
-        End If
-    Next i
-    On Error GoTo 0
-End Sub
-
 ' 文本包含任一目标关键字则返回 True（不区分大小写）
 Private Function ContainsAny(ByVal text As String, ByVal targets As Variant) As Boolean
     Dim t As Variant
