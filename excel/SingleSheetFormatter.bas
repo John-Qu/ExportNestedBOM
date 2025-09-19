@@ -53,7 +53,7 @@ EH:
     LogError "FormatSingleBOMSheet(" & ws.Name & ") 失败: " & Err.Description
 End Sub
 
-Private Sub ApplyToolboxNameReplacement(ByVal ws As Worksheet, ByVal toolboxMap As Object)
+Public Sub ApplyToolboxNameReplacement(ByVal ws As Worksheet, ByVal toolboxMap As Object, Optional ByRef replacedCount As Long = 0)
     On Error GoTo EH
     Dim lastRow As Long: lastRow = LastUsedRow(ws, 1)
 
@@ -74,10 +74,36 @@ Private Sub ApplyToolboxNameReplacement(ByVal ws As Worksheet, ByVal toolboxMap 
                 If colE > 0 Then ws.Cells(r, colE).Value = toolboxMap(partName)
                 If colL > 0 And colJ > 0 Then ws.Cells(r, colJ).Value = ws.Cells(r, colL).Value
                 If colM > 0 And colI > 0 Then ws.Cells(r, colI).Value = ws.Cells(r, colM).Value
+                replacedCount = replacedCount + 1
             End If
         End If
     Next r
     Exit Sub
 EH:
     LogError "ApplyToolboxNameReplacement 失败: " & Err.Description
+End Sub
+
+' 在目标工作簿每个数据表创建副本并应用Toolbox替换
+Public Sub ApplyToolboxReplacement_StepByStep_WPS(ByVal wb As Workbook, ByVal toolboxMap As Object)
+    Dim ws As Worksheet
+    Dim previewWs As Worksheet
+    Dim sheetName As String
+    Dim cell As Range
+    For Each ws In wb.Worksheets
+        sheetName = ws.Name
+        If InStr(sheetName, "汇总") = 0 Then
+            ' 新建副本工作表
+            Set previewWs = wb.Worksheets.Add(After:=ws)
+            previewWs.Name = sheetName & "_预览"
+            ws.Cells.Copy previewWs.Cells
+            previewWs.Activate
+            ' 应用Toolbox替换
+            Call ApplyToolboxNameReplacement(previewWs, toolboxMap)
+            ' 在副本A1写入提示
+            Set cell = previewWs.Range("A1")
+            cell.Value = "已应用Toolbox替换，请人工确认"
+            ' 弹窗提示
+            MsgBox "已生成副本：" & previewWs.Name & "，请确认替换效果。", vbInformation
+        End If
+    Next
 End Sub

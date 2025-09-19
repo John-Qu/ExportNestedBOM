@@ -97,6 +97,7 @@ Public Function LoadToolboxMapping() As Object
             If Not dict.Exists(en) Then dict.Add en, zh
         End If
     Next r
+    LogInfo "映射表加载完成：" & GetFileName(fullPath) & "，条目数=" & CStr(dict.Count)
 
 CLEANUP:
     On Error Resume Next
@@ -383,6 +384,23 @@ Public Function ListBOMFiles(ByVal folderPath As String) As Collection
 End Function
 
 ' 在目标工作簿每个数据表创建副本并应用Toolbox替换
+Public Sub ApplyToolboxReplacement_Direct(ByVal wb As Workbook, ByVal toolboxMap As Object)
+    Dim ws As Worksheet
+    Dim sheetName As String
+    Dim replaced As Long
+    Dim total As Long: total = 0
+    For Each ws In wb.Worksheets
+        sheetName = ws.Name
+        If ws.Visible = xlSheetVisible Then
+            replaced = 0
+            Call SingleSheetFormatter.ApplyToolboxNameReplacement(ws, toolboxMap, replaced)
+            LogInfo "工作表 [" & sheetName & "] 已替换：" & CStr(replaced) & " 条"
+            total = total + replaced
+        End If
+    Next
+    LogInfo "Toolbox名称替换完成，总计替换：" & CStr(total) & " 条"
+End Sub
+
 Public Sub ApplyToolboxReplacement_StepByStep_WPS(ByVal wb As Workbook, ByVal toolboxMap As Object)
     Dim ws As Worksheet
     Dim previewWs As Worksheet
@@ -397,7 +415,7 @@ Public Sub ApplyToolboxReplacement_StepByStep_WPS(ByVal wb As Workbook, ByVal to
             ws.Cells.Copy previewWs.Cells
             previewWs.Activate
             ' 应用Toolbox替换
-            Call ApplyToolboxNameReplacement(previewWs, toolboxMap)
+            Call SingleSheetFormatter.ApplyToolboxNameReplacement(previewWs, toolboxMap)
             ' 在副本A1写入提示
             Set cell = previewWs.Range("A1")
             cell.Value = "已应用Toolbox替换，请人工确认"
@@ -406,3 +424,4 @@ Public Sub ApplyToolboxReplacement_StepByStep_WPS(ByVal wb As Workbook, ByVal to
         End If
     Next
 End Sub
+

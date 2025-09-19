@@ -102,3 +102,11 @@ Public Sub Run_ToolboxReplace_StepByStep_WPS()
     Call ApplyToolboxReplacement_StepByStep_WPS(wb, toolboxMap)
     MsgBox "全部副本已生成，请逐一检查。", vbInformation
 End Sub
+
+Public Sub Run_ToolboxReplace_Direct()
+    Dim wb As Workbook
+    Dim toolboxMap As Object
+    Set wb = GetTargetWorkbook()
+    Set toolboxMap = Utils.LoadToolboxMapping()
+    Call Utils.ApplyToolboxReplacement_Direct(wb, toolboxMap)
+End Sub
