@@ -61,3 +61,44 @@ EH:
 DONE:
     LogClose
 End Sub
+
+' 获取目标工作簿（非宏文件），优先选择第一个非xlsm的已打开工作簿
+Public Function GetTargetWorkbook() As Workbook
+    Dim wb As Workbook
+    For Each wb In Application.Workbooks
+        If LCase$(Right$(wb.Name, 5)) <> ".xlsm" Then
+            Set GetTargetWorkbook = wb
+            Exit Function
+        End If
+    Next wb
+    Set GetTargetWorkbook = Nothing
+End Function
+Public Sub Run_ToolboxReplace_StepByStep()
+    On Error GoTo EH
+    Dim wbTarget As Workbook: Set wbTarget = GetTargetWorkbook()
+    If wbTarget Is Nothing Then
+        LogInit ActiveWbDir()
+        LogError "未找到目标工作簿，请先打开要处理的BOM文件再运行。"
+        GoTo DONE
+    End If
+    wbTarget.Activate
+
+    LogInit ActiveWbDir()
+    SingleSheetFormatter.ApplyToolboxReplacement_StepByStep
+
+    LogInfo "Run_ToolboxReplace_StepByStep 完成"
+    GoTo DONE
+EH:
+    LogError "Run_ToolboxReplace_StepByStep 失败: " & Err.Description
+DONE:
+    LogClose
+End Sub
+
+Public Sub Run_ToolboxReplace_StepByStep_WPS()
+    Dim wb As Workbook
+    Dim toolboxMap As Object
+    Set wb = GetTargetWorkbook()
+    Set toolboxMap = Utils.LoadToolboxMapping()
+    Call ApplyToolboxReplacement_StepByStep_WPS(wb, toolboxMap)
+    MsgBox "全部副本已生成，请逐一检查。", vbInformation
+End Sub
