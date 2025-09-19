@@ -31,22 +31,32 @@ Public Function NormalizeName(ByVal s As String) As String
 End Function
 
 Public Function GetColumnIndex(ByVal ws As Worksheet, ByVal aliases As Variant) As Long
-    Dim headerRow As Long: headerRow = 1
     Dim lastCol As Long
-    lastCol = ws.Cells(headerRow, ws.Columns.Count).End(xlToLeft).Column
+    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+
     Dim wanted As Object: Set wanted = CreateObject("Scripting.Dictionary")
-    Dim i As Long
+    Dim i As Long, headerRow As Long
     For i = LBound(aliases) To UBound(aliases)
         wanted(NormalizeName(CStr(aliases(i)))) = True
     Next i
-    For i = 1 To lastCol
-        Dim h As String
-        h = NormalizeName(CStr(ws.Cells(headerRow, i).Value))
-        If wanted.Exists(h) Then
-            GetColumnIndex = i
-            Exit Function
-        End If
-    Next i
+
+    Dim maxScan As Long: maxScan = IIf(CFG_HEADER_SCAN_MAX_ROWS > 0, CFG_HEADER_SCAN_MAX_ROWS, 1)
+    For headerRow = 1 To maxScan
+        For i = 1 To lastCol
+            Dim h As String
+            h = NormalizeName(CStr(ws.Cells(headerRow, i).Value))
+            If Len(h) > 0 Then
+                If wanted.Exists(h) Then
+                    GetColumnIndex = i
+                    If headerRow <> 1 Then
+                        Logger.LogInfo "Header '" & h & "' found at row=" & headerRow & ", col=" & i & " on sheet " & ws.Name
+                    End If
+                    Exit Function
+                End If
+            End If
+        Next i
+    Next headerRow
+
     GetColumnIndex = 0
 End Function
 
