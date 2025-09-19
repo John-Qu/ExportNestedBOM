@@ -7,8 +7,8 @@ Public Sub ApplyToolboxNameReplacement(ByVal ws As Worksheet, ByVal mapping As O
     colE = Utils.GetColumnIndex(ws, Array("名称", "Name", "NAME", "品名", "零件名称", "部件名称"))
     colI = Utils.GetColumnIndex(ws, Array("SUPPLIER", "Supplier", "渠道", "供应商", "供 应 商", "SUPPLIER ", "供应渠道"))
     colJ = Utils.GetColumnIndex(ws, Array("型号", "型 号", "MODEL", "Model", "规格型号"))
-    ' K 列仅使用英文列名作为匹配键，避免误用中文“名称”导致全表高亮
-    colK = Utils.GetColumnIndex(ws, Array("PART NAME", "Part Name", "PARTNAME", "COMPONENT NAME", "Component Name", "COMPONENT"))
+    ' K 列：用于映射匹配的“零件名称”，允许标准名与常见英文导出名，避免与 E 列“名称”混淆
+    colK = Utils.GetColumnIndex(ws, Array("零件名称", "PART NAME", "Part Name", "PARTNAME", "COMPONENT NAME", "Component Name", "COMPONENT"))
     colL = Utils.GetColumnIndex(ws, Array("规格", "Spec", "SPEC", "SPECIFICATION", "规 格", "规格参数"))
     colM = Utils.GetColumnIndex(ws, Array("标准", "Standard", "STANDARD", "标 准", "执行标准"))
 
@@ -33,8 +33,8 @@ Public Sub ApplyToolboxNameReplacement(ByVal ws As Worksheet, ByVal mapping As O
         Exit Sub
     End If
 
-    ' 输出识别到的列索引，便于确认是否对齐到 K=PART NAME
-    Logger.LogInfo "Detected columns on [" & ws.Name & "]: E(Name)=" & colE & ", I(Supplier)=" & colI & ", J(Model)=" & colJ & ", K(PART NAME)=" & colK & ", L(Spec)=" & colL & ", M(Standard)=" & colM
+    ' 输出识别到的列索引，便于确认是否对齐到 K=零件名称/PART NAME
+    Logger.LogInfo "Detected columns on [" & ws.Name & "]: E(Name)=" & colE & ", I(Supplier)=" & colI & ", J(Model)=" & colJ & ", K(PartName)=" & colK & ", L(Spec)=" & colL & ", M(Standard)=" & colM
 
     Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
     If lastRow < 2 Then Exit Sub
@@ -59,3 +59,186 @@ Public Sub ApplyToolboxNameReplacement(ByVal ws As Worksheet, ByVal mapping As O
 
     Logger.LogInfo "Sheet [" & ws.Name & "] replaced=" & replacedCount & ", unmatched=" & unmatchedCount
 End Sub
+
+' ======================== 用例 T2：列标题重命名与列顺序调整 ========================
+
+Public Sub RenameHeadersAndReorder(ByVal ws As Worksheet)
+    On Error GoTo FAIL
+
+    Dim headerRow As Long: headerRow = DetectHeaderRow(ws)
+    If headerRow = 0 Then headerRow = 1
+    If headerRow <> 1 Then
+        Logger.LogInfo "Header row detected at row=" & headerRow & " on sheet " & ws.Name
+    End If
+
+    ' 定义各列的别名
+    Dim aPreview, aSeq, aPartNo, aCode, aName, aQty, aMaterial, aProcess
+    Dim aSupplier, aModel, aPartName, aSpec, aStd, aRemark
+    Dim aAsm, aBuy, aMach, aSheet
+
+    aPreview = Array("文档预览", "预览", "Preview", "Document Preview")
+    aSeq = Array("序号", "Index", "No.", "NO", "编号")
+    aPartNo = Array("零件号", "PART NUMBER", "Part Number", "零件编码")
+    aCode = Array("代号", "代码", "图号", "Code")
+    aName = Array("名称", "Name", "品名", "部件名称")
+    aQty = Array("数量", "Qty", "QTY", "件数", "数量（个）")
+    aMaterial = Array("材料", "材 料", "材     料", "Material", "MATERIAL")
+    aProcess = Array("处理", "表面处理", "Finish", "Treatment", "处理方式")
+
+    aSupplier = Array("SUPPLIER", "Supplier", "渠道", "供应商", "供应渠道")
+    aModel = Array("型号", "MODEL", "Model", "规格型号")
+    aPartName = Array("零件名称", "PART NAME", "Part Name", "PARTNAME", "COMPONENT NAME", "COMPONENT")
+    aSpec = Array("规格", "SPEC", "Spec", "SPECIFICATION", "规格参数")
+    aStd = Array("标准", "Standard", "STANDARD", "执行标准")
+    aRemark = Array("备注", "Remark", "REMARK", "说明")
+
+    aAsm = Array("是否组装", "组装", "Assembly", "Is Assembly")
+    aBuy = Array("是否外购", "外购", "Purchase", "Is Purchase")
+    aMach = Array("是否机加", "机加", "Machining", "Is Machining")
+    aSheet = Array("是否钣金", "钣金", "Sheet Metal", "Is Sheet Metal")
+
+    ' 找列号
+    Dim cPreview As Long, cSeq As Long, cPartNo As Long, cCode As Long, cName As Long, cQty As Long
+    Dim cMaterial As Long, cProcess As Long, cSupplier As Long, cModel As Long, cPartName As Long
+    Dim cSpec As Long, cStd As Long, cRemark As Long, cAsm As Long, cBuy As Long, cMach As Long, cSheet As Long
+
+    cPreview = FindHeaderColInRow(ws, headerRow, aPreview)
+    cSeq = FindHeaderColInRow(ws, headerRow, aSeq)
+    cPartNo = FindHeaderColInRow(ws, headerRow, aPartNo)
+    cCode = FindHeaderColInRow(ws, headerRow, aCode)
+    cName = FindHeaderColInRow(ws, headerRow, aName)
+    cQty = FindHeaderColInRow(ws, headerRow, aQty)
+    cMaterial = FindHeaderColInRow(ws, headerRow, aMaterial)
+    cProcess = FindHeaderColInRow(ws, headerRow, aProcess)
+    cSupplier = FindHeaderColInRow(ws, headerRow, aSupplier)
+    cModel = FindHeaderColInRow(ws, headerRow, aModel)
+    cPartName = FindHeaderColInRow(ws, headerRow, aPartName)
+    cSpec = FindHeaderColInRow(ws, headerRow, aSpec)
+    cStd = FindHeaderColInRow(ws, headerRow, aStd)
+    cRemark = FindHeaderColInRow(ws, headerRow, aRemark)
+    cAsm = FindHeaderColInRow(ws, headerRow, aAsm)
+    cBuy = FindHeaderColInRow(ws, headerRow, aBuy)
+    cMach = FindHeaderColInRow(ws, headerRow, aMach)
+    cSheet = FindHeaderColInRow(ws, headerRow, aSheet)
+
+    ' 标题重命名（统一标准名）
+    If cPartNo > 0 Then ws.Cells(headerRow, cPartNo).Value = "零件号"
+    If cPreview > 0 Then ws.Cells(headerRow, cPreview).Value = "文档预览"
+    If cSeq > 0 Then ws.Cells(headerRow, cSeq).Value = "序号"
+    If cCode > 0 Then ws.Cells(headerRow, cCode).Value = "代号"
+    If cName > 0 Then ws.Cells(headerRow, cName).Value = "名称"
+    If cQty > 0 Then ws.Cells(headerRow, cQty).Value = "数量"
+    If cMaterial > 0 Then ws.Cells(headerRow, cMaterial).Value = "材料" ' 规范化去空格
+    If cProcess > 0 Then ws.Cells(headerRow, cProcess).Value = "处理"
+    If cSupplier > 0 Then ws.Cells(headerRow, cSupplier).Value = "渠道" ' SUPPLIER -> 渠道
+    If cModel > 0 Then ws.Cells(headerRow, cModel).Value = "型号"
+    If cPartName > 0 Then ws.Cells(headerRow, cPartName).Value = "零件名称"
+    If cSpec > 0 Then ws.Cells(headerRow, cSpec).Value = "规格"
+    If cStd > 0 Then ws.Cells(headerRow, cStd).Value = "标准"
+    If cRemark > 0 Then ws.Cells(headerRow, cRemark).Value = "备注"
+    If cAsm > 0 Then ws.Cells(headerRow, cAsm).Value = "组"
+    If cBuy > 0 Then ws.Cells(headerRow, cBuy).Value = "购"
+    If cMach > 0 Then ws.Cells(headerRow, cMach).Value = "加"
+    If cSheet > 0 Then ws.Cells(headerRow, cSheet).Value = "钣"
+
+    Logger.LogInfo "Headers normalized on [" & ws.Name & "] at row=" & headerRow
+
+    ' 列顺序调整到最终序
+    Dim desired()
+    desired = Array("零件号", "文档预览", "序号", "代号", "名称", "数量", _
+                    "材料", "处理", "渠道", "型号", _
+                    "组", "购", "加", "钣", _
+                    "备注", "零件名称", "规格", "标准")
+
+    Dim pos As Long
+    For pos = LBound(desired) To UBound(desired)
+        Dim targetName As String: targetName = CStr(desired(pos))
+        Dim wantCol As Long: wantCol = pos + 1 ' 数组从0开始
+        Dim curCol As Long
+        curCol = FindHeaderColInRow(ws, headerRow, Array(targetName))
+        If curCol > 0 And curCol <> wantCol Then
+            ' 剪切并插入到目标位置
+            ws.Columns(curCol).Cut
+            ws.Columns(wantCol).Insert Shift:=xlToRight
+        End If
+    Next pos
+
+    Logger.LogInfo "Reordered columns on [" & ws.Name & "] to final sequence A:R"
+    Exit Sub
+FAIL:
+    Logger.LogError "RenameHeadersAndReorder failed on sheet " & ws.Name & ": " & Err.Description
+End Sub
+
+Private Function DetectHeaderRow(ByVal ws As Worksheet) As Long
+    Dim lastCol As Long
+    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+
+    Dim maxScan As Long: maxScan = IIf(CFG_HEADER_SCAN_MAX_ROWS > 0, CFG_HEADER_SCAN_MAX_ROWS, 1)
+    Dim row As Long, i As Long
+
+    Dim vocab As Object: Set vocab = CreateObject("Scripting.Dictionary")
+    Dim aliases
+    aliases = Array( _
+        "文档预览", "预览", "Preview", "Document Preview", _
+        "序号", "Index", "No.", "NO", "编号", _
+        "零件号", "PART NUMBER", "Part Number", "零件编码", _
+        "代号", "代码", "图号", "Code", _
+        "名称", "Name", "品名", "部件名称", _
+        "数量", "Qty", "QTY", "件数", _
+        "材料", "材 料", "材     料", "Material", "MATERIAL", _
+        "处理", "表面处理", "Finish", "Treatment", "处理方式", _
+        "SUPPLIER", "Supplier", "渠道", "供应商", "供应渠道", _
+        "型号", "MODEL", "Model", "规格型号", _
+        "零件名称", "PART NAME", "Part Name", "PARTNAME", "COMPONENT NAME", "COMPONENT", _
+        "规格", "SPEC", "Spec", "SPECIFICATION", "规格参数", _
+        "标准", "Standard", "STANDARD", "执行标准", _
+        "备注", "Remark", "REMARK", "说明", _
+        "是否组装", "组装", "Assembly", "Is Assembly", _
+        "是否外购", "外购", "Purchase", "Is Purchase", _
+        "是否机加", "机加", "Machining", "Is Machining", _
+        "是否钣金", "钣金", "Sheet Metal", "Is Sheet Metal")
+
+    For i = LBound(aliases) To UBound(aliases)
+        vocab(Utils.NormalizeName(CStr(aliases(i)))) = True
+    Next i
+
+    Dim bestRow As Long: bestRow = 1
+    Dim bestCount As Long: bestCount = -1
+
+    For row = 1 To maxScan
+        Dim cnt As Long: cnt = 0
+        For i = 1 To lastCol
+            Dim h As String
+            h = Utils.NormalizeName(CStr(ws.Cells(row, i).Value))
+            If Len(h) > 0 Then
+                If vocab.Exists(h) Then cnt = cnt + 1
+            End If
+        Next i
+        If cnt > bestCount Then
+            bestCount = cnt
+            bestRow = row
+        End If
+    Next row
+
+    DetectHeaderRow = bestRow
+End Function
+
+Private Function FindHeaderColInRow(ByVal ws As Worksheet, ByVal headerRow As Long, ByVal aliases As Variant) As Long
+    Dim lastCol As Long: lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    Dim dict As Object: Set dict = CreateObject("Scripting.Dictionary")
+    Dim i As Long
+    For i = LBound(aliases) To UBound(aliases)
+        dict(Utils.NormalizeName(CStr(aliases(i)))) = True
+    Next i
+    For i = 1 To lastCol
+        Dim h As String
+        h = Utils.NormalizeName(CStr(ws.Cells(headerRow, i).Value))
+        If Len(h) > 0 Then
+            If dict.Exists(h) Then
+                FindHeaderColInRow = i
+                Exit Function
+            End If
+        End If
+    Next i
+    FindHeaderColInRow = 0
+End Function

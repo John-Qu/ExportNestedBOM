@@ -21,6 +21,9 @@ Public Sub T1_Run_ToolboxReplace_ActiveSheet()
     wb.Activate
     Dim ws As Worksheet: Set ws = ActiveSheet
     Logger.LogInfo "Processing ActiveSheet=" & ws.Name
+    ' 先执行列标题重命名与列顺序调整（T2）
+    SingleSheetFormatter.RenameHeadersAndReorder ws
+    ' 再执行用例T1的替换
     SingleSheetFormatter.ApplyToolboxNameReplacement ws, mapping, replaced, unmatched
     Logger.LogInfo "DONE: replaced=" & replaced & ", unmatched=" & unmatched & "; Log=" & Logger.LogPath
 FIN:
@@ -47,6 +50,9 @@ Public Sub T1_Run_ToolboxReplace_AllVisibleSheets()
     For Each ws In wb.Worksheets
         If ws.Visible = xlSheetVisible Then
             replaced = 0: unmatched = 0
+            ' 先执行列标题重命名与列顺序调整（T2）
+            SingleSheetFormatter.RenameHeadersAndReorder ws
+            ' 再执行用例T1的替换
             SingleSheetFormatter.ApplyToolboxNameReplacement ws, mapping, replaced, unmatched
         End If
     Next ws
