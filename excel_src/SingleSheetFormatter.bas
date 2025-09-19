@@ -92,10 +92,10 @@ Public Sub RenameHeadersAndReorder(ByVal ws As Worksheet)
     aStd = Array("标准", "Standard", "STANDARD", "执行标准")
     aRemark = Array("备注", "Remark", "REMARK", "说明")
 
-    aAsm = Array("是否组装", "组装", "Assembly", "Is Assembly")
-    aBuy = Array("是否外购", "外购", "Purchase", "Is Purchase")
-    aMach = Array("是否机加", "机加", "Machining", "Is Machining")
-    aSheet = Array("是否钣金", "钣金", "Sheet Metal", "Is Sheet Metal")
+    aAsm = Array("是否组装", "组装", "Assembly", "Is Assembly", "组")
+    aBuy = Array("是否外购", "外购", "Purchase", "Is Purchase", "购")
+    aMach = Array("是否机加", "机加", "Machining", "Is Machining", "加")
+    aSheet = Array("是否钣金", "钣金", "Sheet Metal", "Is Sheet Metal", "钣")
 
     ' 找列号
     Dim cPreview As Long, cSeq As Long, cPartNo As Long, cCode As Long, cName As Long, cQty As Long
@@ -168,6 +168,83 @@ Public Sub RenameHeadersAndReorder(ByVal ws As Worksheet)
 FAIL:
     Logger.LogError "RenameHeadersAndReorder failed on sheet " & ws.Name & ": " & Err.Description
 End Sub
+
+' ======================== 用例 T3：布尔显示图标化（组/购/加/钣 -> ●/X） ========================
+
+Public Sub IconizeBooleanFlags(ByVal ws As Worksheet)
+    On Error GoTo FAIL
+    Dim headerRow As Long: headerRow = DetectHeaderRow(ws)
+    If headerRow = 0 Then headerRow = 1
+
+    ' 目标列别名（兼容重命名前/后）
+    Dim aAsm, aBuy, aMach, aSheet
+    aAsm = Array("组", "是否组装", "组装", "Assembly", "Is Assembly")
+    aBuy = Array("购", "是否外购", "外购", "Purchase", "Is Purchase")
+    aMach = Array("加", "是否机加", "机加", "Machining", "Is Machining")
+    aSheet = Array("钣", "是否钣金", "钣金", "Sheet Metal", "Is Sheet Metal")
+
+    Dim cAsm As Long, cBuy As Long, cMach As Long, cSheet As Long
+    cAsm = FindHeaderColInRow(ws, headerRow, aAsm)
+    cBuy = FindHeaderColInRow(ws, headerRow, aBuy)
+    cMach = FindHeaderColInRow(ws, headerRow, aMach)
+    cSheet = FindHeaderColInRow(ws, headerRow, aSheet)
+
+    If cAsm = 0 And cBuy = 0 And cMach = 0 And cSheet = 0 Then
+        Logger.LogWarn "IconizeBooleanFlags: boolean columns not found on sheet " & ws.Name
+        Exit Sub
+    End If
+
+    ' 构建真值集合字典（规格化后对比）
+    Dim trueDict As Object: Set trueDict = CreateObject("Scripting.Dictionary")
+    Dim tvs As Variant: tvs = CFG_TRUE_SET()
+    Dim i As Long
+    For i = LBound(tvs) To UBound(tvs)
+        trueDict(Utils.NormalizeName(CStr(tvs(i)))) = True
+    Next i
+
+    Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
+    Dim r As Long, cnt As Long: cnt = 0
+    For r = headerRow + 1 To lastRow
+        ' 针对每个目标列进行图标化
+        If cAsm > 0 Then cnt = cnt + IconizeOneCell(ws, r, cAsm, trueDict)
+        If cBuy > 0 Then cnt = cnt + IconizeOneCell(ws, r, cBuy, trueDict)
+        If cMach > 0 Then cnt = cnt + IconizeOneCell(ws, r, cMach, trueDict)
+        If cSheet > 0 Then cnt = cnt + IconizeOneCell(ws, r, cSheet, trueDict)
+    Next r
+
+    Logger.LogInfo "IconizeBooleanFlags done on [" & ws.Name & "]: changed cells=" & cnt
+    Exit Sub
+FAIL:
+    Logger.LogError "IconizeBooleanFlags failed on sheet " & ws.Name & ": " & Err.Description
+End Sub
+
+Private Function IconizeOneCell(ByVal ws As Worksheet, ByVal rowIndex As Long, ByVal colIndex As Long, ByVal trueDict As Object) As Long
+    Dim v As String
+    v = CStr(ws.Cells(rowIndex, colIndex).Value)
+    Dim norm As String: norm = Utils.NormalizeName(v)
+
+    Dim isTrue As Boolean
+    If Len(norm) = 0 Then
+        isTrue = False
+    ElseIf StrComp(v, ICON_TRUE, vbBinaryCompare) = 0 Then
+        isTrue = True
+    ElseIf StrComp(v, ICON_FALSE, vbBinaryCompare) = 0 Then
+        isTrue = False
+    Else
+        isTrue = trueDict.Exists(norm)
+    End If
+
+    Dim newVal As String
+    newVal = IIf(isTrue, ICON_TRUE, ICON_FALSE)
+    Debug.Print "写入符号：" & newVal
+
+    If StrComp(CStr(ws.Cells(rowIndex, colIndex).Value), newVal, vbBinaryCompare) <> 0 Then
+        ws.Cells(rowIndex, colIndex).Value = newVal
+        IconizeOneCell = 1
+    Else
+        IconizeOneCell = 0
+    End If
+End Function
 
 Private Function DetectHeaderRow(ByVal ws As Worksheet) As Long
     Dim lastCol As Long

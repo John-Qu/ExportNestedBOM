@@ -12,9 +12,9 @@ Public Function CFG_TRUE_SET() As Variant
 End Function
 
 Public Property Get ICON_TRUE() As String
-    ICON_TRUE = "◉"
+    ICON_TRUE = "●"
 End Property
 
 Public Property Get ICON_FALSE() As String
-    ICON_FALSE = "✕"
+    ICON_FALSE = "X"
 End Property

@@ -5,8 +5,8 @@ Option Explicit
 Public Const CFG_MAPPING_WORKBOOK_PATH As String = "FomatBOM_ExportPDF.xlsm"
 Public Const CFG_MAPPING_SHEET As String = "ToolboxNames"
 ' 图标字符
-Public Const CFG_Icon_True As String = "◉"
-Public Const CFG_Icon_False As String = "✕"
+Public Const CFG_Icon_True As String = "●"
+Public Const CFG_Icon_False As String = "X"
 
 ' 字体配置（不可用时 Utils 里会回退）
 Public Const CFG_Font_Primary As String = "汉仪长仿宋体"

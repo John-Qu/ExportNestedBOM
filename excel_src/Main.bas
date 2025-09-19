@@ -25,6 +25,8 @@ Public Sub T1_Run_ToolboxReplace_ActiveSheet()
     SingleSheetFormatter.RenameHeadersAndReorder ws
     ' 再执行用例T1的替换
     SingleSheetFormatter.ApplyToolboxNameReplacement ws, mapping, replaced, unmatched
+    ' 执行用例T3：布尔图标化
+    SingleSheetFormatter.IconizeBooleanFlags ws
     Logger.LogInfo "DONE: replaced=" & replaced & ", unmatched=" & unmatched & "; Log=" & Logger.LogPath
 FIN:
     Logger.LogClose
@@ -54,6 +56,8 @@ Public Sub T1_Run_ToolboxReplace_AllVisibleSheets()
             SingleSheetFormatter.RenameHeadersAndReorder ws
             ' 再执行用例T1的替换
             SingleSheetFormatter.ApplyToolboxNameReplacement ws, mapping, replaced, unmatched
+            ' 执行用例T3：布尔图标化
+            SingleSheetFormatter.IconizeBooleanFlags ws
         End If
     Next ws
 
