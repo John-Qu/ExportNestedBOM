@@ -381,3 +381,28 @@ Public Function ListBOMFiles(ByVal folderPath As String) As Collection
     Loop
     Set ListBOMFiles = col
 End Function
+
+' 在目标工作簿每个数据表创建副本并应用Toolbox替换
+Public Sub ApplyToolboxReplacement_StepByStep_WPS(ByVal wb As Workbook, ByVal toolboxMap As Object)
+    Dim ws As Worksheet
+    Dim previewWs As Worksheet
+    Dim sheetName As String
+    Dim cell As Range
+    For Each ws In wb.Worksheets
+        sheetName = ws.Name
+        If InStr(sheetName, "汇总") = 0 Then
+            ' 新建副本工作表
+            Set previewWs = wb.Worksheets.Add(After:=ws)
+            previewWs.Name = sheetName & "_预览"
+            ws.Cells.Copy previewWs.Cells
+            previewWs.Activate
+            ' 应用Toolbox替换
+            Call ApplyToolboxNameReplacement(previewWs, toolboxMap)
+            ' 在副本A1写入提示
+            Set cell = previewWs.Range("A1")
+            cell.Value = "已应用Toolbox替换，请人工确认"
+            ' 弹窗提示
+            MsgBox "已生成副本：" & previewWs.Name & "，请确认替换效果。", vbInformation
+        End If
+    Next
+End Sub
