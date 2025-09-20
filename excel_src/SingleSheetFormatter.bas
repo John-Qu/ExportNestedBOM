@@ -319,3 +319,83 @@ Private Function FindHeaderColInRow(ByVal ws As Worksheet, ByVal headerRow As Lo
     Next i
     FindHeaderColInRow = 0
 End Function
+
+' 统一格式化单表（S2/S3/S6/S7）：重命名与列序、布尔图标化、字体与对齐、打印设置
+Public Sub FormatSingleBOMSheet(ByVal ws As Worksheet)
+    On Error GoTo FAIL
+    RenameHeadersAndReorder ws
+    IconizeBooleanFlags ws
+    ApplyFontAndAlignment ws
+    ApplyPrintSetup ws
+    Logger.LogInfo "FormatSingleBOMSheet done on [" & ws.Name & "]"
+    Exit Sub
+FAIL:
+    Logger.LogError "FormatSingleBOMSheet failed on sheet " & ws.Name & ": " & Err.Description
+End Sub
+
+' S6 字体与对齐
+Public Sub ApplyFontAndAlignment(ByVal ws As Worksheet)
+    Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
+    Dim lastCol As Long: lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    Dim headerRow As Long: headerRow = 1
+    Dim fontName As String
+    Dim i As Long, r As Long, c As Long
+    fontName = "汉仪长仿宋体"
+    On Error Resume Next
+    ws.Cells.Font.Name = fontName
+    If ws.Cells.Font.Name <> fontName Then
+        fontName = "宋体"
+        ws.Cells.Font.Name = fontName
+        If ws.Cells.Font.Name <> fontName Then
+            fontName = "微软雅黑"
+            ws.Cells.Font.Name = fontName
+        End If
+    End If
+    ws.Cells.Font.Size = 14
+    ws.Cells.Font.Bold = False
+    ws.Rows(headerRow).Font.Bold = True
+    ws.Rows(headerRow).HorizontalAlignment = xlCenter
+    ws.Rows(headerRow).VerticalAlignment = xlCenter
+    Dim colWidths As Variant
+    colWidths = Array(27, 17, 7, 15.5, 12, 7, 15, 10, 12, 20, 4, 4, 4, 4, 20, 12, 12, 12)
+    For i = 1 To Application.WorksheetFunction.Min(UBound(colWidths) + 1, lastCol)
+        ws.Columns(i).ColumnWidth = colWidths(i - 1)
+    Next i
+    For r = headerRow + 1 To lastRow
+        ws.Rows(r).Font.Bold = False
+        ws.Rows(r).VerticalAlignment = xlCenter
+        For c = 1 To lastCol
+            Select Case c
+                Case 4, 10, 8, 15 ' D 代号、J 型号、H 处理、O 备注
+                    ws.Cells(r, c).HorizontalAlignment = xlLeft
+                Case 6 ' F 数量
+                    ws.Cells(r, c).HorizontalAlignment = xlRight
+                Case Else
+                    ws.Cells(r, c).HorizontalAlignment = xlCenter
+            End Select
+        Next c
+    Next r
+End Sub
+
+' S7 打印设置与页眉页脚
+Public Sub ApplyPrintSetup(ByVal ws As Worksheet)
+    Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
+    With ws.PageSetup
+        .PrintArea = ws.Range(ws.Cells(1, 2), ws.Cells(lastRow, 15)).Address  ' B:O
+        .PrintTitleRows = "$1:$1"
+        .Orientation = xlLandscape
+        .PaperSize = xlPaperA4
+        .Zoom = 100
+        .LeftHeader = Utils.GetLeafFolderName(Utils.WorkbookDir(ws.Parent))
+        .CenterHeader = ws.Parent.Name
+        .RightHeader = Format(FileDateTime(ws.Parent.FullName), "yyyy-mm-dd")
+        .CenterFooter = "第 &P 页，共 &N 页"
+        .LeftMargin = Application.CentimetersToPoints(1.5)
+        .RightMargin = Application.CentimetersToPoints(1.5)
+        .TopMargin = Application.CentimetersToPoints(1.5)
+        .BottomMargin = Application.CentimetersToPoints(1.5)
+        .HeaderMargin = Application.CentimetersToPoints(0.8)
+        .FooterMargin = Application.CentimetersToPoints(0.8)
+    End With
+    ws.Cells.Borders.LineStyle = xlNone
+End Sub

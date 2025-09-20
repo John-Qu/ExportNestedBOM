@@ -139,3 +139,14 @@ Public Function ResolveTargetWorkbook() As Workbook
 
     Set ResolveTargetWorkbook = Nothing
 End Function
+
+
+' 获取路径最后一级目录名（不含上级路径分隔符）
+Public Function GetLeafFolderName(ByVal folderPath As String) As String
+    Dim p As Long: p = InStrRev(folderPath, Application.PathSeparator)
+    If p > 0 Then
+        GetLeafFolderName = Mid$(folderPath, p + 1)
+    Else
+        GetLeafFolderName = folderPath
+    End If
+End Function
