@@ -100,3 +100,31 @@ Public Sub Run_Format_AllVisibleSheets()
 FIN:
     Logger.LogClose
 End Sub
+
+' 新增：格式化并导出当前工作簿所有可见工作表为 PDF（T5/E4）
+Public Sub Run_FormatAndExport_CurrentWorkbook()
+    Dim wb As Workbook: Set wb = Utils.ResolveTargetWorkbook()
+    If wb Is Nothing Then
+        MsgBox "未找到可处理的目标工作簿（请打开要处理的 .xls 文件）", vbExclamation
+        Exit Sub
+    End If
+
+    Dim dirPath As String: dirPath = Utils.WorkbookDir(wb)
+    Logger.LogInit dirPath, "T5"
+    On Error GoTo FIN
+    Dim ws As Worksheet
+    Dim pdfPath As String
+    For Each ws In wb.Worksheets
+        If ws.Visible = xlSheetVisible Then
+            Logger.LogInfo "Formatting+Exporting sheet=" & ws.Name
+            SingleSheetFormatter.FormatSingleBOMSheet ws
+            pdfPath = PdfExport.ExportWorksheetToPdf(ws)
+            If Len(pdfPath) > 0 Then
+                Logger.LogInfo "PDF generated: " & pdfPath
+            End If
+        End If
+    Next ws
+    Logger.LogInfo "DONE: All visible sheets formatted and exported to PDF/"
+FIN:
+    Logger.LogClose
+End Sub
