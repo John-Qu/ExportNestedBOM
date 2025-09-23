@@ -128,3 +128,24 @@ Public Sub Run_FormatAndExport_CurrentWorkbook()
 FIN:
     Logger.LogClose
 End Sub
+
+Public Sub Run_Generate_TotalBOM_FromSummary()
+    Dim wb As Workbook: Set wb = Utils.ResolveTargetWorkbook()
+    If wb Is Nothing Then
+        MsgBox "未找到目标工作簿（请激活 *_汇总.xls 工作簿）", vbExclamation
+        Exit Sub
+    End If
+
+    Dim baseDir As String: baseDir = Utils.WorkbookDir(wb)
+    Logger.LogInit baseDir, "T6"
+
+    On Error GoTo FAIL
+
+    SummaryProcessor.BuildTotalBOMFromSummary
+
+    Logger.LogClose
+    Exit Sub
+FAIL:
+    Logger.LogError "Run_Generate_TotalBOM_FromSummary failed: " & Err.Description
+    Logger.LogClose
+End Sub

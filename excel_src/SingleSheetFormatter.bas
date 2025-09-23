@@ -333,7 +333,7 @@ FAIL:
     Logger.LogError "FormatSingleBOMSheet failed on sheet " & ws.Name & ": " & Err.Description
 End Sub
 
-' S6 字体与对齐
+' S6 字体与对齐、列宽
 Public Sub ApplyFontAndAlignment(ByVal ws As Worksheet)
     Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
     Dim lastCol As Long: lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
@@ -356,8 +356,8 @@ Public Sub ApplyFontAndAlignment(ByVal ws As Worksheet)
     ws.Rows(headerRow).Font.Bold = True
     ws.Rows(headerRow).HorizontalAlignment = xlCenter
     ws.Rows(headerRow).VerticalAlignment = xlCenter
-    Dim colWidths As Variant
-    colWidths = Array(27, 17, 7, 15.5, 12, 7, 15, 10, 12, 20, 4, 4, 4, 4, 20, 12, 12, 12)
+    Dim colWidths As Variant '列宽
+    colWidths = Array(22, 15, 4, 15, 8, 4, 8, 8, 10, 12, 2.5, 2.5, 2.5, 2.5, 27, 12, 12, 12)
     For i = 1 To Application.WorksheetFunction.Min(UBound(colWidths) + 1, lastCol)
         ws.Columns(i).ColumnWidth = colWidths(i - 1)
     Next i
