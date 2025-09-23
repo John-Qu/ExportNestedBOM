@@ -5,10 +5,19 @@ Public Function WorkbookDir(ByVal wb As Workbook) As String
 End Function
 
 Public Function LastUsedRow(ByVal ws As Worksheet) As Long
+    ' 更稳健的“最后行”探测：综合 公式/常量/UsedRange 三种方式，取最大值
+    Dim lrF As Long, lrV As Long, lrU As Long
     On Error Resume Next
-    LastUsedRow = ws.Cells.Find(What:="*", After:=ws.Cells(1, 1), LookIn:=xlFormulas, LookAt:=xlPart, _
-        SearchOrder:=xlByRows, SearchDirection:=xlPrevious).Row
-    If LastUsedRow = 0 Then LastUsedRow = 1
+    lrF = ws.Cells.Find(What:="*", After:=ws.Cells(1, 1), LookIn:=xlFormulas, LookAt:=xlPart, _
+                        SearchOrder:=xlByRows, SearchDirection:=xlPrevious).Row
+    lrV = ws.Cells.Find(What:="*", After:=ws.Cells(1, 1), LookIn:=xlValues, LookAt:=xlPart, _
+                        SearchOrder:=xlByRows, SearchDirection:=xlPrevious).Row
+    lrU = ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1
+    On Error GoTo 0
+    If lrF < 1 Then lrF = 1
+    If lrV < 1 Then lrV = 1
+    If lrU < 1 Then lrU = 1
+    LastUsedRow = Application.WorksheetFunction.Max(lrF, lrV, lrU)
 End Function
 
 Public Function CollapseSpaces(ByVal s As String) As String

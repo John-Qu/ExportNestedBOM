@@ -67,11 +67,13 @@ Public Sub BuildTotalBOMFromSummary()
     ' 开始逐行汇总：从实际表头行的下一行开始
     Dim rSum As Long, lastSumRow As Long
     lastSumRow = Utils.LastUsedRow(wsSum)
+    Logger.LogInfo "T6: Summary lastSumRow=" & lastSumRow
 
     Dim outRow As Long: outRow = 2
     Dim key As String, qty As Variant, chain As String
 
     For rSum = headerRow + 1 To lastSumRow
+        On Error GoTo ROW_FAIL
         key = CStr(wsSum.Cells(rSum, cKey).Value)
         key = Trim$(key)
         If Len(key) = 0 Then GoTo CONTINUE_LOOP
@@ -136,6 +138,7 @@ Public Sub BuildTotalBOMFromSummary()
 
         outRow = outRow + 1
 CONTINUE_LOOP:
+        On Error GoTo 0
     Next rSum
 
     ' 统一格式化与打印设置
@@ -154,6 +157,10 @@ CLEANUP:
     Next wbTmp
     On Error GoTo 0
     Exit Sub
+ROW_FAIL:
+    Logger.LogError "T6: row=" & rSum & " failed - " & Err.Description & " (key='" & key & "')"
+    Err.Clear
+    Resume CONTINUE_LOOP
 FAIL:
     Logger.LogError "T6: failed - " & Err.Description
     Resume CLEANUP
@@ -250,16 +257,15 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
     ByVal a备注 As Variant, ByVal a零件名称 As Variant, ByVal a规格 As Variant, ByVal a标准 As Variant, _
     ByRef srcValues() As Variant) As Boolean
 
+    On Error GoTo FAIL
     Dim ws As Worksheet
     For Each ws In wbBOM.Worksheets
         If ws.Visible = xlSheetVisible Then
             Dim cPN As Long: cPN = Utils.GetColumnIndex(ws, a零件号)
             If cPN > 0 Then
                 Dim rng As Range
-                On Error Resume Next
                 Set rng = ws.Columns(cPN).Find(What:=key, LookIn:=xlValues, LookAt:=xlWhole, _
                                                SearchOrder:=xlByRows, SearchDirection:=xlNext, MatchCase:=False)
-                On Error GoTo 0
                 If Not rng Is Nothing Then
                     ' 定位各列
                     Dim c文档预览 As Long: c文档预览 = Utils.GetColumnIndex(ws, a文档预览)
@@ -308,6 +314,10 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
             End If
         End If
     Next ws
+    ExtractRowByKey = False
+    Exit Function
+FAIL:
+    Logger.LogError "ExtractRowByKey failed on workbook '" & wbBOM.Name & "' (sheet='" & IIf(ws Is Nothing, "<unknown>", ws.Name) & "', key='" & key & "'): " & Err.Description
     ExtractRowByKey = False
 End Function
 
