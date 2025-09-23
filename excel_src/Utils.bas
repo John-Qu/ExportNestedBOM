@@ -31,9 +31,6 @@ Public Function NormalizeName(ByVal s As String) As String
 End Function
 
 Public Function GetColumnIndex(ByVal ws As Worksheet, ByVal aliases As Variant) As Long
-    Dim lastCol As Long
-    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
-
     Dim wanted As Object: Set wanted = CreateObject("Scripting.Dictionary")
     Dim i As Long, headerRow As Long
     For i = LBound(aliases) To UBound(aliases)
@@ -42,6 +39,10 @@ Public Function GetColumnIndex(ByVal ws As Worksheet, ByVal aliases As Variant) 
 
     Dim maxScan As Long: maxScan = IIf(CFG_HEADER_SCAN_MAX_ROWS > 0, CFG_HEADER_SCAN_MAX_ROWS, 1)
     For headerRow = 1 To maxScan
+        ' 修正：针对每个候选表头行单独计算该行的实际最右列
+        Dim lastCol As Long
+        lastCol = ws.Cells(headerRow, ws.Columns.Count).End(xlToLeft).Column
+        If lastCol < 1 Then lastCol = 1
         For i = 1 To lastCol
             Dim h As String
             h = NormalizeName(CStr(ws.Cells(headerRow, i).Value))

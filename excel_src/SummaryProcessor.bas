@@ -1,7 +1,7 @@
 Option Explicit
 
 ' 构建“总 BOM 清单”：
-' - 以当前目标工作簿（通常为“*_汇总.xls”）为驱动，定位“代号/总数量/分解链”列
+' - 以当前目标工作簿（通常为“*_汇总.xls”）为驱动，定位“代号/总数量/分解链”列（同一表头行）
 ' - 扫描同目录所有不含“汇总”的 *.xls* 子装配/主装配清单文件
 ' - 在这些 BOM 表中按“零件号”精确匹配，复制描述性字段（首次出现优先）
 ' - 在输出表中：F=数量 使用汇总“总数量”；在 O=备注 右侧新增一列“计算说明”承载“分解链”
@@ -18,15 +18,15 @@ Public Sub BuildTotalBOMFromSummary()
     Logger.LogInfo "T6: Summary workbook=" & wb.Name & ", Dir=" & baseDir
 
     Dim wsSum As Worksheet
-    Dim cKey As Long, cQty As Long, cChain As Long
-    Set wsSum = FindSummarySheetAndCols(wb, cKey, cQty, cChain)
+    Dim cKey As Long, cQty As Long, cChain As Long, headerRow As Long
+    Set wsSum = FindSummarySheetAndCols(wb, cKey, cQty, cChain, headerRow)
     If wsSum Is Nothing Then
         Logger.LogError "T6: 未在任何工作表中识别到 ‘代号/总数量/分解链’ 列"
         MsgBox "未在该工作簿中发现可用的 汇总 表（需要包含列：代号/总数量/分解链）", vbCritical
         Exit Sub
     End If
     Logger.LogInfo "T6: Summary sheet=" & wsSum.Name & _
-                  ", keyCol=" & cKey & ", qtyCol=" & cQty & ", chainCol=" & cChain
+                  ", headerRow=" & headerRow & ", keyCol=" & cKey & ", qtyCol=" & cQty & ", chainCol=" & cChain
 
     ' 预备输出工作表
     Dim wsOut As Worksheet
@@ -42,7 +42,7 @@ Public Sub BuildTotalBOMFromSummary()
     Dim a零件号, a序号, a代号, a名称, a数量, a材料, a处理, a渠道, aSUP, a型号
     Dim a组, a购, a加, a钣, a备注, a零件名称, a规格, a标准, a文档预览
     a零件号 = Array("零件号", "编码", "编号", "Part Number")
-    a序号 = Array("序号", "行号", "Index")
+    a序号 = Array("序号", "项目号", "行号", "Index")
     a代号 = Array("代号", "编号", "Code")
     a名称 = Array("名称", "件名", "Name")
     a数量 = Array("数量", "数目", "Qty", "Quantity")
@@ -64,14 +64,14 @@ Public Sub BuildTotalBOMFromSummary()
     ' 写表头（含新增列“计算说明”放在 备注 右侧）
     WriteOutputHeader wsOut
 
-    ' 开始逐行汇总
+    ' 开始逐行汇总：从实际表头行的下一行开始
     Dim rSum As Long, lastSumRow As Long
     lastSumRow = Utils.LastUsedRow(wsSum)
 
     Dim outRow As Long: outRow = 2
     Dim key As String, qty As Variant, chain As String
 
-    For rSum = 2 To lastSumRow
+    For rSum = headerRow + 1 To lastSumRow
         key = CStr(wsSum.Cells(rSum, cKey).Value)
         key = Trim$(key)
         If Len(key) = 0 Then GoTo CONTINUE_LOOP
@@ -107,7 +107,7 @@ Public Sub BuildTotalBOMFromSummary()
             ' 将抽取值填入（注意 srcValues 对应 A..S 但不含“计算说明”）
             ' A 已写，B..O、Q..S 从 srcValues 映射
             wsOut.Cells(outRow, 2).Value = srcValues(2)   ' 文档预览
-            wsOut.Cells(outRow, 3).Value = srcValues(3)   ' 序号
+            wsOut.Cells(outRow, 3).Value = srcValues(3)   ' 序号/项目号
             wsOut.Cells(outRow, 4).Value = srcValues(4)   ' 代号
             wsOut.Cells(outRow, 5).Value = srcValues(5)   ' 名称
             ' F 数量 使用汇总 qty 覆盖
@@ -159,21 +159,53 @@ FAIL:
     Resume CLEANUP
 End Sub
 
-Private Function FindSummarySheetAndCols(ByVal wb As Workbook, ByRef cKey As Long, ByRef cQty As Long, ByRef cChain As Long) As Worksheet
+Private Function FindSummarySheetAndCols(ByVal wb As Workbook, ByRef cKey As Long, ByRef cQty As Long, ByRef cChain As Long, ByRef headerRow As Long) As Worksheet
     Dim ws As Worksheet
-    Dim aKey, aQty, aChain
+    Dim aKey, aQtyPrefer, aQtyFallback, aChain
     aKey = Array("代号", "零件号", "编码", "编号")
-    aQty = Array("总数量", "合计数量", "数量合计", "总数", "数量")
+    aQtyPrefer = Array("总数量", "合计数量", "数量合计", "总数")
+    aQtyFallback = Array("数量")
     aChain = Array("分解链", "计算说明", "展开链")
 
+    Dim wantedKey As Object: Set wantedKey = CreateObject("Scripting.Dictionary")
+    Dim wantedQtyPrefer As Object: Set wantedQtyPrefer = CreateObject("Scripting.Dictionary")
+    Dim wantedQtyFallback As Object: Set wantedQtyFallback = CreateObject("Scripting.Dictionary")
+    Dim wantedChain As Object: Set wantedChain = CreateObject("Scripting.Dictionary")
+    Dim i As Long
+    For i = LBound(aKey) To UBound(aKey): wantedKey(Utils.NormalizeName(CStr(aKey(i)))) = True: Next i
+    For i = LBound(aQtyPrefer) To UBound(aQtyPrefer): wantedQtyPrefer(Utils.NormalizeName(CStr(aQtyPrefer(i)))) = True: Next i
+    For i = LBound(aQtyFallback) To UBound(aQtyFallback): wantedQtyFallback(Utils.NormalizeName(CStr(aQtyFallback(i)))) = True: Next i
+    For i = LBound(aChain) To UBound(aChain): wantedChain(Utils.NormalizeName(CStr(aChain(i)))) = True: Next i
+
     For Each ws In wb.Worksheets
-        cKey = Utils.GetColumnIndex(ws, aKey)
-        cQty = Utils.GetColumnIndex(ws, aQty)
-        cChain = Utils.GetColumnIndex(ws, aChain)
-        If cKey > 0 And cQty > 0 And cChain > 0 Then
-            Set FindSummarySheetAndCols = ws
-            Exit Function
-        End If
+        Dim maxScan As Long: maxScan = IIf(CFG_HEADER_SCAN_MAX_ROWS > 0, CFG_HEADER_SCAN_MAX_ROWS, 1)
+        Dim row As Long
+        For row = 1 To maxScan
+            Dim lastCol As Long
+            lastCol = ws.Cells(row, ws.Columns.Count).End(xlToLeft).Column
+            If lastCol < 1 Then lastCol = 1
+            Dim keyCol As Long: keyCol = 0
+            Dim qtyPreferCol As Long: qtyPreferCol = 0
+            Dim qtyFallbackCol As Long: qtyFallbackCol = 0
+            Dim chainCol As Long: chainCol = 0
+            For i = 1 To lastCol
+                Dim h As String
+                h = Utils.NormalizeName(CStr(ws.Cells(row, i).Value))
+                If Len(h) > 0 Then
+                    If keyCol = 0 And wantedKey.Exists(h) Then keyCol = i
+                    If qtyPreferCol = 0 And wantedQtyPrefer.Exists(h) Then qtyPreferCol = i
+                    If qtyFallbackCol = 0 And wantedQtyFallback.Exists(h) Then qtyFallbackCol = i
+                    If chainCol = 0 And wantedChain.Exists(h) Then chainCol = i
+                End If
+            Next i
+            Dim qtyCol As Long
+            If qtyPreferCol > 0 Then qtyCol = qtyPreferCol Else qtyCol = qtyFallbackCol
+            If keyCol > 0 And qtyCol > 0 And chainCol > 0 Then
+                cKey = keyCol: cQty = qtyCol: cChain = chainCol: headerRow = row
+                Set FindSummarySheetAndCols = ws
+                Exit Function
+            End If
+        Next row
     Next ws
     Set FindSummarySheetAndCols = Nothing
 End Function
@@ -223,7 +255,6 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
         If ws.Visible = xlSheetVisible Then
             Dim cPN As Long: cPN = Utils.GetColumnIndex(ws, a零件号)
             If cPN > 0 Then
-                Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
                 Dim rng As Range
                 On Error Resume Next
                 Set rng = ws.Columns(cPN).Find(What:=key, LookIn:=xlValues, LookAt:=xlWhole, _
