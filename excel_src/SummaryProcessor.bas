@@ -342,7 +342,14 @@ End Function
 Private Function CopyCellPictures(ByVal srcWS As Worksheet, ByVal srcRow As Long, ByVal srcCol As Long, _
     ByVal dstWS As Worksheet, ByVal dstRow As Long, ByVal dstCol As Long) As Long
     Dim cnt As Long: cnt = 0
-    Dim shp As Shape
+    
+    ' 确保显示绘图对象（避免以占位符或隐藏导致粘贴但不可见）
+    Dim prevDisplay As XlDisplayDrawingObjects
+    On Error Resume Next
+    prevDisplay = Application.DisplayDrawingObjects
+    Application.DisplayDrawingObjects = xlDisplayShapes
+    On Error GoTo 0
+    
     Dim cellRng As Range: Set cellRng = srcWS.Cells(srcRow, srcCol)
     Dim cellLeft As Double, cellTop As Double, cellRight As Double, cellBottom As Double
     cellLeft = cellRng.Left
@@ -350,46 +357,117 @@ Private Function CopyCellPictures(ByVal srcWS As Worksheet, ByVal srcRow As Long
     cellRight = cellLeft + cellRng.Width
     cellBottom = cellTop + cellRng.Height
 
+    ' 1) 复制 Shapes（图片/形状等）
+    Dim shp As Shape
     For Each shp In srcWS.Shapes
-        ' 判断形状是否与该单元格区域有重叠（适配图片略微偏移的情况）
         If (shp.Top < cellBottom) And ((shp.Top + shp.Height) > cellTop) And _
            (shp.Left < cellRight) And ((shp.Left + shp.Width) > cellLeft) Then
-            shp.Copy
-            Dim shpRange As ShapeRange
-            Dim newShp As Shape
+            If PasteShapeToCell(shp, dstWS, dstRow, dstCol) Then cnt = cnt + 1
+        End If
+    Next shp
+
+    ' 2) 复制 OLEObjects（部分导出预览可能是 OLE 容器）
+    Dim ole As OLEObject
+    For Each ole In srcWS.OLEObjects
+        If (ole.Top < cellBottom) And ((ole.Top + ole.Height) > cellTop) And _
+           (ole.Left < cellRight) And ((ole.Left + ole.Width) > cellLeft) Then
+            ' 尝试复制并粘贴为图片
             On Error Resume Next
-            Set shpRange = dstWS.Shapes.Paste
-            If Not shpRange Is Nothing Then
-                Set newShp = shpRange(1)
-            Else
+            ole.Copy
+            Dim pasted As ShapeRange
+            Dim newOleShp As Shape
+            Set pasted = dstWS.Shapes.Paste
+            If Not pasted Is Nothing Then Set newOleShp = pasted(1)
+            If newOleShp Is Nothing Then
                 dstWS.Paste
-                Set newShp = dstWS.Shapes(dstWS.Shapes.Count)
+                Set newOleShp = dstWS.Shapes(dstWS.Shapes.Count)
             End If
             On Error GoTo 0
-            If Not newShp Is Nothing Then
-                Dim cellW As Double, cellH As Double
-                cellW = dstWS.Cells(dstRow, dstCol).Width
-                cellH = dstWS.Cells(dstRow, dstCol).Height
-                With newShp
-                    On Error Resume Next
-                    .LockAspectRatio = msoTrue
-                    On Error GoTo 0
-                    Dim sW As Double, sH As Double, s As Double
-                    sW = (cellW - 4) / .Width
-                    sH = (cellH - 4) / .Height
-                    s = sW: If sH < s Then s = sH
-                    If s < 1 Then
-                        .Width = .Width * s
-                        .Height = .Height * s
-                    End If
-                    .Left = dstWS.Cells(dstRow, dstCol).Left + (cellW - .Width) / 2
-                    .Top = dstWS.Cells(dstRow, dstCol).Top + (cellH - .Height) / 2
-                End With
+            If Not newOleShp Is Nothing Then
+                ResizeAndCenterShape newOleShp, dstWS, dstRow, dstCol
                 cnt = cnt + 1
             End If
         End If
-    Next shp
+    Next ole
+
+    ' 3) 若仍未复制到任何图片，回退：对该单元格作屏幕快照并粘贴为图片
+    If cnt = 0 Then
+        On Error Resume Next
+        cellRng.CopyPicture Appearance:=xlScreen, Format:=xlPicture
+        Dim snap As ShapeRange
+        Dim newSnap As Shape
+        Set snap = dstWS.Shapes.Paste
+        If Not snap Is Nothing Then Set newSnap = snap(1)
+        If newSnap Is Nothing Then
+            dstWS.Paste
+            Set newSnap = dstWS.Shapes(dstWS.Shapes.Count)
+        End If
+        On Error GoTo 0
+        If Not newSnap Is Nothing Then
+            ResizeAndCenterShape newSnap, dstWS, dstRow, dstCol
+            cnt = cnt + 1
+            Logger.LogInfo "T6: Fallback CopyPicture used for preview at row=" & dstRow
+        Else
+            Logger.LogWarn "T6: No picture copied for preview at row=" & dstRow & ", col=" & dstCol
+        End If
+    End If
+
+    ' 恢复显示设置
+    On Error Resume Next
+    Application.DisplayDrawingObjects = prevDisplay
+    On Error GoTo 0
+
     CopyCellPictures = cnt
+End Function
+
+Private Sub ResizeAndCenterShape(ByVal shp As Shape, ByVal dstWS As Worksheet, ByVal dstRow As Long, ByVal dstCol As Long)
+    Dim cellW As Double, cellH As Double
+    cellW = dstWS.Cells(dstRow, dstCol).Width
+    cellH = dstWS.Cells(dstRow, dstCol).Height
+    With shp
+        On Error Resume Next
+        .LockAspectRatio = msoTrue
+        .Placement = xlMoveAndSize
+        .PrintObject = True
+        .Visible = msoTrue
+        On Error GoTo 0
+        Dim sW As Double, sH As Double, s As Double
+        sW = (cellW - 4) / .Width
+        sH = (cellH - 4) / .Height
+        s = sW: If sH < s Then s = sH
+        If s <= 0 Then s = 1
+        ' 无论大小都按比例缩放，使其尽量充满单元格（保留 2pt 边距）
+        .Width = .Width * s
+        .Height = .Height * s
+        .Left = dstWS.Cells(dstRow, dstCol).Left + (cellW - .Width) / 2
+        .Top = dstWS.Cells(dstRow, dstCol).Top + (cellH - .Height) / 2
+        ' 置顶以避免被其他对象（如布尔图标）遮挡
+        On Error Resume Next
+        .ZOrder msoBringToFront
+        On Error GoTo 0
+    End With
+End Sub
+
+Private Function PasteShapeToCell(ByVal srcShp As Shape, ByVal dstWS As Worksheet, ByVal dstRow As Long, ByVal dstCol As Long) As Boolean
+    Dim pasted As ShapeRange
+    Dim newShp As Shape
+    PasteShapeToCell = False
+    On Error Resume Next
+    ' 优先以图片方式复制，以提升兼容性
+    srcShp.CopyPicture Appearance:=xlScreen, Format:=xlPicture
+    Set pasted = dstWS.Shapes.Paste
+    If Not pasted Is Nothing Then Set newShp = pasted(1)
+    If newShp Is Nothing Then
+        ' 回退为普通复制粘贴
+        dstWS.Paste
+        Set newShp = dstWS.Shapes(dstWS.Shapes.Count)
+    End If
+    Application.CutCopyMode = False
+    On Error GoTo 0
+    If Not newShp Is Nothing Then
+        ResizeAndCenterShape newShp, dstWS, dstRow, dstCol
+        PasteShapeToCell = True
+    End If
 End Function
 
 Private Sub GatherBOMWorkbooks(ByVal baseDir As String, ByVal wbSummary As Workbook, _
