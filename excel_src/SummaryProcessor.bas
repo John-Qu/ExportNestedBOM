@@ -421,7 +421,7 @@ Private Function CopyCellPictures(ByVal srcWS As Worksheet, ByVal srcRow As Long
             End If
             On Error GoTo 0
             If Not newOleShp Is Nothing Then
-                ResizeAndCenterShape newOleShp, dstWS, dstRow, dstCol
+                ResizeAndCenterShape newOleShp, dstWS, dstRow, dstCol, 0.5
                 cnt = cnt + 1
             End If
         End If
@@ -441,7 +441,7 @@ Private Function CopyCellPictures(ByVal srcWS As Worksheet, ByVal srcRow As Long
         End If
         On Error GoTo 0
         If Not newSnap Is Nothing Then
-            ResizeAndCenterShape newSnap, dstWS, dstRow, dstCol
+            ResizeAndCenterShape newSnap, dstWS, dstRow, dstCol, 0.5
             cnt = cnt + 1
             Logger.LogInfo "T6: Fallback CopyPicture used for preview at row=" & dstRow
         Else
@@ -457,15 +457,15 @@ Private Function CopyCellPictures(ByVal srcWS As Worksheet, ByVal srcRow As Long
     CopyCellPictures = cnt
 End Function
 
-Private Sub ResizeAndCenterShape(ByVal shp As Shape, ByVal dstWS As Worksheet, ByVal dstRow As Long, ByVal dstCol As Long)
+Private Sub ResizeAndCenterShape(ByVal shp As Shape, ByVal dstWS As Worksheet, ByVal dstRow As Long, ByVal dstCol As Long, Optional ByVal fixedScale As Double = 0)
     ' 若单元格过小，自动扩大列宽与行高以保证清晰可见
-    Dim minWpt As Double: minWpt = 150   ' 最小列宽（点）
-    Dim minHpt As Double: minHpt = 110   ' 最小行高（点）
+    Dim minWpt As Double: minWpt = 100   ' 最小列宽（点）
+    Dim minHpt As Double: minHpt = 70    ' 最小行高（点）
     Dim curW As Double: curW = dstWS.Cells(dstRow, dstCol).Width
     Dim curH As Double: curH = dstWS.Cells(dstRow, dstCol).Height
     If curW < minWpt Then
-        ' 将整列 B 的列宽扩大到约 26 字符宽（对应 ~200pt 左右，不同字体略异）
-        If dstWS.Columns(dstCol).ColumnWidth < 26 Then dstWS.Columns(dstCol).ColumnWidth = 26
+        ' 将整列 B 的列宽扩大到约 15 字符宽（你已调整）
+        If dstWS.Columns(dstCol).ColumnWidth < 15 Then dstWS.Columns(dstCol).ColumnWidth = 15
     End If
     If curH < minHpt Then
         If dstWS.Rows(dstRow).RowHeight < minHpt Then dstWS.Rows(dstRow).RowHeight = minHpt
@@ -482,33 +482,45 @@ Private Sub ResizeAndCenterShape(ByVal shp As Shape, ByVal dstWS As Worksheet, B
         .Placement = xlMoveAndSize
         .PrintObject = True
         .Visible = msoTrue
+        .Locked = True
         On Error GoTo 0
         
-        ' 计算等比缩放系数，严格按原图比例缩放（留4pt边距）
+        ' 计算可用空间（留4pt边距），基于此决定缩放
         Dim availW As Double, availH As Double
-        availW = cellW - 4  ' 左右各留2pt
-        availH = cellH - 4  ' 上下各留2pt
+        availW = cellW - 4
+        availH = cellH - 4
         
-        Dim scaleW As Double, scaleH As Double, finalScale As Double
-        scaleW = availW / .Width
-        scaleH = availH / .Height
-        finalScale = scaleW
-        If scaleH < finalScale Then finalScale = scaleH  ' 取小者确保完全适配
-        If finalScale <= 0 Then finalScale = 0.1  ' 防止异常
+        ' 适配缩放（等比）
+        Dim fitScaleW As Double, fitScaleH As Double, fitScale As Double
+        fitScaleW = availW / .Width
+        fitScaleH = availH / .Height
+        fitScale = fitScaleW
+        If fitScaleH < fitScale Then fitScale = fitScaleH
+        If fitScale <= 0 Then fitScale = 0.1
         
-        ' 应用等比缩放
+        ' 固定缩放优先（如传入 0.5），若固定缩放超出单元格则回退为适配缩放
+        Dim finalScale As Double
+        If fixedScale > 0 Then
+            finalScale = fixedScale
+            If (.Width * finalScale > availW) Or (.Height * finalScale > availH) Then
+                finalScale = fitScale
+            End If
+        Else
+            finalScale = fitScale
+        End If
+        
+        ' 应用缩放
         .Width = .Width * finalScale
         .Height = .Height * finalScale
         
-        ' 精确居中：计算单元格中心，减去图片中心偏移
+        ' 精确居中
         Dim cellCenterX As Double, cellCenterY As Double
         cellCenterX = dstWS.Cells(dstRow, dstCol).Left + cellW / 2
         cellCenterY = dstWS.Cells(dstRow, dstCol).Top + cellH / 2
-        
         .Left = cellCenterX - .Width / 2
         .Top = cellCenterY - .Height / 2
         
-        ' 置顶以避免被其他对象（如布尔图标）遮挡
+        ' 置顶
         On Error Resume Next
         .ZOrder msoBringToFront
         On Error GoTo 0
@@ -539,7 +551,7 @@ Private Function PasteShapeToCell(ByVal srcShp As Shape, ByVal dstWS As Workshee
     Application.CutCopyMode = False
     On Error GoTo 0
     If Not newShp Is Nothing Then
-        ResizeAndCenterShape newShp, dstWS, dstRow, dstCol
+        ResizeAndCenterShape newShp, dstWS, dstRow, dstCol, 0.5
         PasteShapeToCell = True
     End If
 End Function
