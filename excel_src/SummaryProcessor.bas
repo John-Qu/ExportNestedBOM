@@ -638,3 +638,38 @@ Private Sub ClearCellShapes(ByVal ws As Worksheet, ByVal row As Long, ByVal col 
     Next s
     On Error GoTo 0
 End Sub
+
+Public Sub ScaleAllPicturesInTotalBOMTo50()
+    On Error GoTo FAIL
+    Dim wb As Workbook: Set wb = Utils.ResolveTargetWorkbook()
+    If wb Is Nothing Then
+        MsgBox "未找到可处理的目标工作簿（请打开 *_汇总.xls 文件）", vbExclamation
+        Exit Sub
+    End If
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = wb.Worksheets("总 BOM 清单")
+    On Error GoTo 0
+    If ws Is Nothing Then
+        MsgBox "未找到工作表：总 BOM 清单", vbExclamation
+        Exit Sub
+    End If
+
+    Dim shp As Shape
+    For Each shp In ws.Shapes
+        ' 仅处理图片类形状
+        If shp.Type = msoPicture Or shp.Type = msoLinkedPicture Then
+            On Error Resume Next
+            shp.LockAspectRatio = msoFalse
+            ' 将宽和高都设置为原始尺寸的 50%
+            shp.ScaleWidth 0.5, msoTrue, msoScaleFromTopLeft
+            shp.ScaleHeight 0.5, msoTrue, msoScaleFromTopLeft
+            On Error GoTo 0
+        End If
+    Next shp
+
+    Logger.LogInfo "T6: Scaled all picture shapes on '总 BOM 清单' to 50% width & height (aspect ratio unlocked)."
+    Exit Sub
+FAIL:
+    Logger.LogError "ScaleAllPicturesInTotalBOMTo50 failed: " & Err.Description
+End Sub
