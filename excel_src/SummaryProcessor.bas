@@ -139,9 +139,13 @@ Public Sub BuildTotalBOMFromSummary()
                 Dim copied As Long
                 copied = CopyCellPictures(oSrcWS, oSrcRow, oPrevCol, wsOut, outRow, 2)
                 Logger.LogInfo "T6: Copied preview pictures=" & copied & " for key='" & key & "'"
+                If copied = 0 Then
+                    Logger.LogWarn "T6: No preview picture found for key='" & key & "' (src='" & oSrcWS.Name & "', row=" & oSrcRow & ", col=" & oPrevCol & ")"
+                End If
                 On Error GoTo ROW_FAIL
             End If
         Else
+            Logger.LogWarn "T6: BOM row not found for key='" & key & "'; outputting base info only"
             ' 未匹配：仍然输出基本信息（代号=key，数量=汇总），计算说明写入
             wsOut.Cells(outRow, 4).Value = key
             wsOut.Cells(outRow, 6).Value = CDbl(qty)
@@ -357,20 +361,27 @@ Private Function CopyCellPictures(ByVal srcWS As Worksheet, ByVal srcRow As Long
     cellRight = cellLeft + cellRng.Width
     cellBottom = cellTop + cellRng.Height
 
-    ' 1) 复制 Shapes（图片/形状等）
+    ' 先清理目标单元格中已有的预览形状，避免多次运行叠加/残留
+    ClearCellShapes dstWS, dstRow, dstCol
+
+    ' 1) 复制 Shapes（图片/形状等）——用“中心点在单元格内”判定，避免跨行大图被多行命中
     Dim shp As Shape
     For Each shp In srcWS.Shapes
-        If (shp.Top < cellBottom) And ((shp.Top + shp.Height) > cellTop) And _
-           (shp.Left < cellRight) And ((shp.Left + shp.Width) > cellLeft) Then
+        Dim cx As Double, cy As Double
+        cx = shp.Left + shp.Width / 2
+        cy = shp.Top + shp.Height / 2
+        If (cx > cellLeft And cx < cellRight And cy > cellTop And cy < cellBottom) Then
             If PasteShapeToCell(shp, dstWS, dstRow, dstCol) Then cnt = cnt + 1
         End If
     Next shp
 
-    ' 2) 复制 OLEObjects（部分导出预览可能是 OLE 容器）
+    ' 2) 复制 OLEObjects（部分导出预览可能是 OLE 容器）——同样使用中心点判定
     Dim ole As OLEObject
     For Each ole In srcWS.OLEObjects
-        If (ole.Top < cellBottom) And ((ole.Top + ole.Height) > cellTop) And _
-           (ole.Left < cellRight) And ((ole.Left + ole.Width) > cellLeft) Then
+        Dim ocx As Double, ocy As Double
+        ocx = ole.Left + ole.Width / 2
+        ocy = ole.Top + ole.Height / 2
+        If (ocx > cellLeft And ocx < cellRight And ocy > cellTop And ocy < cellBottom) Then
             ' 尝试复制并粘贴为图片
             On Error Resume Next
             ole.Copy
@@ -421,9 +432,24 @@ Private Function CopyCellPictures(ByVal srcWS As Worksheet, ByVal srcRow As Long
 End Function
 
 Private Sub ResizeAndCenterShape(ByVal shp As Shape, ByVal dstWS As Worksheet, ByVal dstRow As Long, ByVal dstCol As Long)
+    ' 若单元格过小，自动扩大列宽与行高以保证清晰可见
+    Dim minWpt As Double: minWpt = 150   ' 最小列宽（点）
+    Dim minHpt As Double: minHpt = 110   ' 最小行高（点）
+    Dim curW As Double: curW = dstWS.Cells(dstRow, dstCol).Width
+    Dim curH As Double: curH = dstWS.Cells(dstRow, dstCol).Height
+    If curW < minWpt Then
+        ' 将整列 B 的列宽扩大到约 26 字符宽（对应 ~200pt 左右，不同字体略异）
+        If dstWS.Columns(dstCol).ColumnWidth < 26 Then dstWS.Columns(dstCol).ColumnWidth = 26
+    End If
+    If curH < minHpt Then
+        If dstWS.Rows(dstRow).RowHeight < minHpt Then dstWS.Rows(dstRow).RowHeight = minHpt
+    End If
+
+    ' 取更新后的尺寸
     Dim cellW As Double, cellH As Double
     cellW = dstWS.Cells(dstRow, dstCol).Width
     cellH = dstWS.Cells(dstRow, dstCol).Height
+
     With shp
         On Error Resume Next
         .LockAspectRatio = msoTrue
@@ -453,14 +479,21 @@ Private Function PasteShapeToCell(ByVal srcShp As Shape, ByVal dstWS As Workshee
     Dim newShp As Shape
     PasteShapeToCell = False
     On Error Resume Next
-    ' 优先以图片方式复制，以提升兼容性
-    srcShp.CopyPicture Appearance:=xlScreen, Format:=xlPicture
-    Set pasted = dstWS.Shapes.Paste
-    If Not pasted Is Nothing Then Set newShp = pasted(1)
+    ' 优先：图片类型用直接复制粘贴，保持分辨率（必要时 Excel 会以原位图/矢量复制）
+    If srcShp.Type = msoPicture Or srcShp.Type = msoLinkedPicture Then
+        srcShp.Copy
+        Set pasted = dstWS.Shapes.Paste
+        If Not pasted Is Nothing Then Set newShp = pasted(1)
+    End If
+    ' 回退：以打印质量位图粘贴
     If newShp Is Nothing Then
-        ' 回退为普通复制粘贴
-        dstWS.Paste
-        Set newShp = dstWS.Shapes(dstWS.Shapes.Count)
+        srcShp.CopyPicture Appearance:=xlPrinter, Format:=xlBitmap
+        Set pasted = dstWS.Shapes.Paste
+        If Not pasted Is Nothing Then Set newShp = pasted(1)
+        If newShp Is Nothing Then
+            dstWS.Paste
+            Set newShp = dstWS.Shapes(dstWS.Shapes.Count)
+        End If
     End If
     Application.CutCopyMode = False
     On Error GoTo 0
@@ -516,4 +549,23 @@ Private Sub GatherBOMWorkbooks(ByVal baseDir As String, ByVal wbSummary As Workb
             Set bomBooks = tmp
         End If
     End If
+End Sub
+
+Private Sub ClearCellShapes(ByVal ws As Worksheet, ByVal row As Long, ByVal col As Long)
+    On Error Resume Next
+    Dim L As Double, T As Double, R As Double, B As Double
+    L = ws.Cells(row, col).Left
+    T = ws.Cells(row, col).Top
+    R = L + ws.Cells(row, col).Width
+    B = T + ws.Cells(row, col).Height
+    Dim s As Shape
+    For Each s In ws.Shapes
+        Dim cx As Double, cy As Double
+        cx = s.Left + s.Width / 2
+        cy = s.Top + s.Height / 2
+        If (cx > L And cx < R And cy > T And cy < B) Then
+            s.Delete
+        End If
+    Next s
+    On Error GoTo 0
 End Sub
