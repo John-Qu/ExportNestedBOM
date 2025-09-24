@@ -364,27 +364,53 @@ Private Function CopyCellPictures(ByVal srcWS As Worksheet, ByVal srcRow As Long
     ' 先清理目标单元格中已有的预览形状，避免多次运行叠加/残留
     ClearCellShapes dstWS, dstRow, dstCol
 
-    ' 1) 复制 Shapes（图片/形状等）——用“中心点在单元格内”判定，避免跨行大图被多行命中
+    ' 1) 查找符合条件的最大形状（按面积），仅选一个避免大小不一的问题
+    Dim bestShp As Shape, bestArea As Double
     Dim shp As Shape
+    Dim ole As OLEObject
+    bestArea = 0
     For Each shp In srcWS.Shapes
         Dim cx As Double, cy As Double
         cx = shp.Left + shp.Width / 2
         cy = shp.Top + shp.Height / 2
         If (cx > cellLeft And cx < cellRight And cy > cellTop And cy < cellBottom) Then
-            If PasteShapeToCell(shp, dstWS, dstRow, dstCol) Then cnt = cnt + 1
+            Dim area As Double
+            area = shp.Width * shp.Height
+            If area > bestArea Then
+                Set bestShp = shp
+                bestArea = area
+            End If
         End If
     Next shp
+    
+    ' 如果找到最佳形状，粘贴它
+    If Not bestShp Is Nothing Then
+        If PasteShapeToCell(bestShp, dstWS, dstRow, dstCol) Then cnt = cnt + 1
+    End If
 
-    ' 2) 复制 OLEObjects（部分导出预览可能是 OLE 容器）——同样使用中心点判定
-    Dim ole As OLEObject
-    For Each ole In srcWS.OLEObjects
-        Dim ocx As Double, ocy As Double
-        ocx = ole.Left + ole.Width / 2
-        ocy = ole.Top + ole.Height / 2
-        If (ocx > cellLeft And ocx < cellRight And ocy > cellTop And ocy < cellBottom) Then
-            ' 尝试复制并粘贴为图片
+    ' 2) 如果 Shapes 中没找到，再从 OLEObjects 中找最大的一个
+    If cnt = 0 Then
+        Dim bestOle As OLEObject, bestOleArea As Double
+        bestOleArea = 0
+        ' 下面的循环变量 ole 需要在函数顶部声明
+        For Each ole In srcWS.OLEObjects
+            Dim ocx As Double, ocy As Double
+            ocx = ole.Left + ole.Width / 2
+            ocy = ole.Top + ole.Height / 2
+            If (ocx > cellLeft And ocx < cellRight And ocy > cellTop And ocy < cellBottom) Then
+                Dim oleArea As Double
+                oleArea = ole.Width * ole.Height
+                If oleArea > bestOleArea Then
+                    Set bestOle = ole
+                    bestOleArea = oleArea
+                End If
+            End If
+        Next ole
+        
+        ' 如果找到最佳 OLE 对象，粘贴它
+        If Not bestOle Is Nothing Then
             On Error Resume Next
-            ole.Copy
+            bestOle.Copy
             Dim pasted As ShapeRange
             Dim newOleShp As Shape
             Set pasted = dstWS.Shapes.Paste
@@ -399,7 +425,7 @@ Private Function CopyCellPictures(ByVal srcWS As Worksheet, ByVal srcRow As Long
                 cnt = cnt + 1
             End If
         End If
-    Next ole
+    End If
 
     ' 3) 若仍未复制到任何图片，回退：对该单元格作屏幕快照并粘贴为图片
     If cnt = 0 Then
@@ -452,21 +478,36 @@ Private Sub ResizeAndCenterShape(ByVal shp As Shape, ByVal dstWS As Worksheet, B
 
     With shp
         On Error Resume Next
-        .LockAspectRatio = msoTrue
+        .LockAspectRatio = msoTrue  ' 强制锁定纵横比
         .Placement = xlMoveAndSize
         .PrintObject = True
         .Visible = msoTrue
         On Error GoTo 0
-        Dim sW As Double, sH As Double, s As Double
-        sW = (cellW - 4) / .Width
-        sH = (cellH - 4) / .Height
-        s = sW: If sH < s Then s = sH
-        If s <= 0 Then s = 1
-        ' 无论大小都按比例缩放，使其尽量充满单元格（保留 2pt 边距）
-        .Width = .Width * s
-        .Height = .Height * s
-        .Left = dstWS.Cells(dstRow, dstCol).Left + (cellW - .Width) / 2
-        .Top = dstWS.Cells(dstRow, dstCol).Top + (cellH - .Height) / 2
+        
+        ' 计算等比缩放系数，严格按原图比例缩放（留4pt边距）
+        Dim availW As Double, availH As Double
+        availW = cellW - 4  ' 左右各留2pt
+        availH = cellH - 4  ' 上下各留2pt
+        
+        Dim scaleW As Double, scaleH As Double, finalScale As Double
+        scaleW = availW / .Width
+        scaleH = availH / .Height
+        finalScale = scaleW
+        If scaleH < finalScale Then finalScale = scaleH  ' 取小者确保完全适配
+        If finalScale <= 0 Then finalScale = 0.1  ' 防止异常
+        
+        ' 应用等比缩放
+        .Width = .Width * finalScale
+        .Height = .Height * finalScale
+        
+        ' 精确居中：计算单元格中心，减去图片中心偏移
+        Dim cellCenterX As Double, cellCenterY As Double
+        cellCenterX = dstWS.Cells(dstRow, dstCol).Left + cellW / 2
+        cellCenterY = dstWS.Cells(dstRow, dstCol).Top + cellH / 2
+        
+        .Left = cellCenterX - .Width / 2
+        .Top = cellCenterY - .Height / 2
+        
         ' 置顶以避免被其他对象（如布尔图标）遮挡
         On Error Resume Next
         .ZOrder msoBringToFront
