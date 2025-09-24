@@ -282,8 +282,24 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
             Dim cPN As Long: cPN = Utils.GetColumnIndex(ws, a零件号)
             If cPN > 0 Then
                 Dim rng As Range
+                Dim normKey As String: normKey = Utils.NormalizeName(key)
                 Set rng = ws.Columns(cPN).Find(What:=key, LookIn:=xlValues, LookAt:=xlWhole, _
                                                SearchOrder:=xlByRows, SearchDirection:=xlNext, MatchCase:=False)
+                If rng Is Nothing Then
+                    ' 回退：按“归一化后的零件号”逐行比对，解决单元格内换行符导致的匹配失败
+                    Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
+                    Dim rr As Long
+                    Dim cellText As String
+                    For rr = 1 To lastRow
+                        cellText = CStr(ws.Cells(rr, cPN).Value)
+                        If Len(cellText) > 0 Then
+                            If Utils.NormalizeName(cellText) = normKey Then
+                                Set rng = ws.Cells(rr, cPN)
+                                Exit For
+                            End If
+                        End If
+                    Next rr
+                End If
                 If Not rng Is Nothing Then
                     ' 定位各列
                     Dim c文档预览 As Long: c文档预览 = Utils.GetColumnIndex(ws, a文档预览)
