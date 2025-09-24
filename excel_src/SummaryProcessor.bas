@@ -71,6 +71,9 @@ Public Sub BuildTotalBOMFromSummary()
 
     Dim outRow As Long: outRow = 2
     Dim key As String, qty As Variant, chain As String
+    Dim oSrcWS As Worksheet
+    Dim oSrcRow As Long
+    Dim oPrevCol As Long
 
     For rSum = headerRow + 1 To lastSumRow
         On Error GoTo ROW_FAIL
@@ -88,7 +91,7 @@ Public Sub BuildTotalBOMFromSummary()
             Dim wbBOM As Workbook: Set wbBOM = wbi
             If ExtractRowByKey(wbBOM, key, a零件号, _
                                a文档预览, a序号, a代号, a名称, a数量, a材料, a处理, a渠道, aSUP, a型号, _
-                               a组, a购, a加, a钣, a备注, a零件名称, a规格, a标准, srcValues) Then
+                               a组, a购, a加, a钣, a备注, a零件名称, a规格, a标准, srcValues, oSrcWS, oSrcRow, oPrevCol) Then
                 found = True
                 Exit For
             End If
@@ -129,6 +132,15 @@ Public Sub BuildTotalBOMFromSummary()
             wsOut.Cells(outRow, 17).Value = srcValues(17) ' 零件名称
             wsOut.Cells(outRow, 18).Value = srcValues(18) ' 规格
             wsOut.Cells(outRow, 19).Value = srcValues(19) ' 标准
+
+            ' 若来源单元格内包含图片（形状），复制到汇总表 B 列对应单元格
+            If Not oSrcWS Is Nothing And oPrevCol > 0 Then
+                On Error Resume Next
+                Dim copied As Long
+                copied = CopyCellPictures(oSrcWS, oSrcRow, oPrevCol, wsOut, outRow, 2)
+                Logger.LogInfo "T6: Copied preview pictures=" & copied & " for key='" & key & "'"
+                On Error GoTo ROW_FAIL
+            End If
         Else
             ' 未匹配：仍然输出基本信息（代号=key，数量=汇总），计算说明写入
             wsOut.Cells(outRow, 4).Value = key
@@ -145,6 +157,8 @@ CONTINUE_LOOP:
     SingleSheetFormatter.IconizeBooleanFlags wsOut
     SingleSheetFormatter.ApplyFontAndAlignment wsOut
     SingleSheetFormatter.ApplyPrintSetup wsOut
+    ' 隐藏“序号”列（C列）
+    wsOut.Columns(3).Hidden = True
 
     Logger.LogInfo "T6: DONE. Output sheet='总 BOM 清单', rows=" & (outRow - 2)
 
@@ -255,7 +269,7 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
     ByVal a渠道 As Variant, ByVal aSUP As Variant, ByVal a型号 As Variant, _
     ByVal a组 As Variant, ByVal a购 As Variant, ByVal a加 As Variant, ByVal a钣 As Variant, _
     ByVal a备注 As Variant, ByVal a零件名称 As Variant, ByVal a规格 As Variant, ByVal a标准 As Variant, _
-    ByRef srcValues() As Variant) As Boolean
+    ByRef srcValues() As Variant, ByRef oSrcWS As Worksheet, ByRef oSrcRow As Long, ByRef oPrevCol As Long) As Boolean
 
     On Error GoTo FAIL
     Dim ws As Worksheet
@@ -308,6 +322,10 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
                     srcValues(18) = IIf(c规格 > 0, ws.Cells(rng.Row, c规格).Value, Empty)
                     srcValues(19) = IIf(c标准 > 0, ws.Cells(rng.Row, c标准).Value, Empty)
 
+                    Set oSrcWS = ws
+                    oSrcRow = rng.Row
+                    oPrevCol = c文档预览
+
                     ExtractRowByKey = True
                     Exit Function
                 End If
@@ -319,6 +337,59 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
 FAIL:
     Logger.LogError "ExtractRowByKey failed on workbook '" & wbBOM.Name & "' (sheet='" & IIf(ws Is Nothing, "<unknown>", ws.Name) & "', key='" & key & "'): " & Err.Description
     ExtractRowByKey = False
+End Function
+
+Private Function CopyCellPictures(ByVal srcWS As Worksheet, ByVal srcRow As Long, ByVal srcCol As Long, _
+    ByVal dstWS As Worksheet, ByVal dstRow As Long, ByVal dstCol As Long) As Long
+    Dim cnt As Long: cnt = 0
+    Dim shp As Shape
+    Dim cellRng As Range: Set cellRng = srcWS.Cells(srcRow, srcCol)
+    Dim cellLeft As Double, cellTop As Double, cellRight As Double, cellBottom As Double
+    cellLeft = cellRng.Left
+    cellTop = cellRng.Top
+    cellRight = cellLeft + cellRng.Width
+    cellBottom = cellTop + cellRng.Height
+
+    For Each shp In srcWS.Shapes
+        ' 判断形状是否与该单元格区域有重叠（适配图片略微偏移的情况）
+        If (shp.Top < cellBottom) And ((shp.Top + shp.Height) > cellTop) And _
+           (shp.Left < cellRight) And ((shp.Left + shp.Width) > cellLeft) Then
+            shp.Copy
+            Dim shpRange As ShapeRange
+            Dim newShp As Shape
+            On Error Resume Next
+            Set shpRange = dstWS.Shapes.Paste
+            If Not shpRange Is Nothing Then
+                Set newShp = shpRange(1)
+            Else
+                dstWS.Paste
+                Set newShp = dstWS.Shapes(dstWS.Shapes.Count)
+            End If
+            On Error GoTo 0
+            If Not newShp Is Nothing Then
+                Dim cellW As Double, cellH As Double
+                cellW = dstWS.Cells(dstRow, dstCol).Width
+                cellH = dstWS.Cells(dstRow, dstCol).Height
+                With newShp
+                    On Error Resume Next
+                    .LockAspectRatio = msoTrue
+                    On Error GoTo 0
+                    Dim sW As Double, sH As Double, s As Double
+                    sW = (cellW - 4) / .Width
+                    sH = (cellH - 4) / .Height
+                    s = sW: If sH < s Then s = sH
+                    If s < 1 Then
+                        .Width = .Width * s
+                        .Height = .Height * s
+                    End If
+                    .Left = dstWS.Cells(dstRow, dstCol).Left + (cellW - .Width) / 2
+                    .Top = dstWS.Cells(dstRow, dstCol).Top + (cellH - .Height) / 2
+                End With
+                cnt = cnt + 1
+            End If
+        End If
+    Next shp
+    CopyCellPictures = cnt
 End Function
 
 Private Sub GatherBOMWorkbooks(ByVal baseDir As String, ByVal wbSummary As Workbook, _
