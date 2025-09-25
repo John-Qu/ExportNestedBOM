@@ -153,3 +153,165 @@ FAIL:
     Logger.LogError "Run_Generate_TotalBOM_FromSummary failed: " & Err.Description
     Logger.LogClose
 End Sub
+
+Public Sub Run_Merge_SubBOMs_Into_CurrentWorkbook()
+    On Error GoTo EH
+    Dim topWb As Workbook: Set topWb = Utils.ResolveTargetWorkbook()
+    If topWb Is Nothing Then
+        MsgBox "未找到目标工作簿（请打开顶层装配的 .xls 工作簿）", vbExclamation
+        Exit Sub
+    End If
+
+    Dim baseDir As String: baseDir = Utils.WorkbookDir(topWb)
+    Logger.LogInit baseDir, "T8"
+    Logger.LogInfo "Merge: top workbook=" & topWb.Name & ", baseDir=" & baseDir
+
+    Dim merged As Long: merged = MergeSubBOMsIntoWorkbook(baseDir, topWb)
+    Logger.LogInfo "Merge: DONE. merged sheets=" & merged & "; Log=" & Logger.LogPath
+    Logger.LogClose
+    Exit Sub
+EH:
+    Logger.LogError "Run_Merge_SubBOMs_Into_CurrentWorkbook failed: " & Err.Description
+    Logger.LogClose
+End Sub
+
+Private Function MergeSubBOMsIntoWorkbook(ByVal baseDir As String, ByVal topWb As Workbook) As Long
+    On Error GoTo EH
+    Dim f As String
+    Dim cnt As Long: cnt = 0
+    Dim wb As Workbook
+    Dim ws As Worksheet
+    Dim wasAlreadyOpen As Boolean
+    Dim topWasShared As Boolean
+
+    If Len(baseDir) = 0 Then
+        Logger.LogWarn "Merge: current workbook has no Path; skip"
+        MergeSubBOMsIntoWorkbook = 0
+        Exit Function
+    End If
+
+    ' 目标工作簿解除共享并保存（如需）
+    topWasShared = topWb.MultiUserEditing
+    EnsureWorkbookExclusive topWb
+    If topWasShared And Not topWb.MultiUserEditing Then
+        On Error Resume Next
+        topWb.Save
+        On Error GoTo EH
+        Logger.LogInfo "Merge: target workbook unshared and saved: " & topWb.Name
+    End If
+
+    f = Dir(baseDir & "\*.xls*")
+    Do While f <> ""
+        ' 排除当前工作簿、汇总文件、映射宏工作簿与 Excel 临时锁文件
+        If StrComp(f, topWb.Name, vbTextCompare) <> 0 _
+           And InStr(1, f, "_汇总", vbTextCompare) = 0 _
+           And StrComp(f, CFG_MAPPING_WORKBOOK_NAME, vbTextCompare) <> 0 _
+           And Left$(f, 2) <> "~$" Then
+
+            ' 打开或复用已打开的工作簿
+            Set wb = Utils.FindOpenWorkbookByName(f)
+            wasAlreadyOpen = Not (wb Is Nothing)
+            If Not wasAlreadyOpen Then
+                Set wb = Application.Workbooks.Open(FileName:=baseDir & "\" & f, ReadOnly:=False)
+            End If
+
+            ' 源工作簿解除共享（如需）
+            Dim srcWasShared As Boolean: srcWasShared = wb.MultiUserEditing
+            EnsureWorkbookExclusive wb
+            If srcWasShared And Not wb.MultiUserEditing Then
+                Logger.LogInfo "Merge: source workbook unshared: " & wb.Name
+            End If
+
+            ' 选择第一个可见工作表作为拷贝源
+            Set ws = Nothing
+            Dim tmpWS As Worksheet
+            For Each tmpWS In wb.Worksheets
+                If tmpWS.Visible = xlSheetVisible Then
+                    Set ws = tmpWS
+                    Exit For
+                End If
+            Next
+
+            If Not ws Is Nothing Then
+                Dim nameNoExt As String: nameNoExt = f
+                If InStrRev(nameNoExt, ".") > 0 Then nameNoExt = Left$(nameNoExt, InStrRev(nameNoExt, ".") - 1)
+
+                Dim sheetName As String
+                sheetName = MakeUniqueSheetName(topWb, SafeSheetName(nameNoExt))
+
+                ' 拷贝工作表到当前工作簿尾部，并重命名
+                ws.Copy After:=topWb.Worksheets(topWb.Worksheets.Count)
+                topWb.Worksheets(topWb.Worksheets.Count).Name = sheetName
+                Logger.LogInfo "Merge: copied sheet from '" & wb.Name & "' as '" & sheetName & "'"
+                cnt = cnt + 1
+            Else
+                Logger.LogWarn "Merge: no visible sheet in workbook='" & wb.Name & "'"
+            End If
+
+            ' 关闭我们临时打开的工作簿（如解除共享则保存以持久化）
+            If Not wasAlreadyOpen Then
+                Application.DisplayAlerts = False
+                wb.Close SaveChanges:=(srcWasShared And Not wb.MultiUserEditing)
+                Application.DisplayAlerts = True
+            End If
+        End If
+        f = Dir()
+    Loop
+
+    MergeSubBOMsIntoWorkbook = cnt
+    Exit Function
+EH:
+    Logger.LogError "MergeSubBOMsIntoWorkbook failed: " & Err.Description
+    MergeSubBOMsIntoWorkbook = cnt
+End Function
+
+Private Function SafeSheetName(ByVal nm As String) As String
+    Dim s As String: s = Trim$(nm)
+    ' 替换非法字符 ： / \ ? * [ ]
+    s = Replace$(s, ":", "_")
+    s = Replace$(s, "/", "_")
+    s = Replace$(s, "\", "_")
+    s = Replace$(s, "?", "_")
+    s = Replace$(s, "*", "_")
+    s = Replace$(s, "[", "_")
+    s = Replace$(s, "]", "_")
+    If Len(s) = 0 Then s = "Sheet"
+    If Len(s) > 31 Then s = Left$(s, 31)
+    SafeSheetName = s
+End Function
+
+Private Function MakeUniqueSheetName(ByVal wb As Workbook, ByVal baseName As String) As String
+    Dim candidate As String: candidate = baseName
+    Dim suffix As Long: suffix = 2
+    Do While SheetExists(wb, candidate)
+        Dim sfx As String: sfx = " (" & suffix & ")"
+        Dim maxBase As Long: maxBase = 31 - Len(sfx)
+        If maxBase < 1 Then maxBase = 1
+        candidate = Left$(baseName, maxBase) & sfx
+        suffix = suffix + 1
+    Loop
+    MakeUniqueSheetName = candidate
+End Function
+
+Private Function SheetExists(ByVal wb As Workbook, ByVal name As String) As Boolean
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = wb.Worksheets(name)
+    SheetExists = Not (ws Is Nothing)
+    On Error GoTo 0
+End Function
+
+Private Sub EnsureWorkbookExclusive(ByVal wb As Workbook)
+    On Error Resume Next
+    If wb.MultiUserEditing Then
+        Application.DisplayAlerts = False
+        wb.ExclusiveAccess
+        Application.DisplayAlerts = True
+        If Not wb.MultiUserEditing Then
+            Logger.LogInfo "ExclusiveAccess: unshared '" & wb.Name & "'"
+        Else
+            Logger.LogWarn "ExclusiveAccess: still shared '" & wb.Name & "'"
+        End If
+    End If
+    On Error GoTo 0
+End Sub
