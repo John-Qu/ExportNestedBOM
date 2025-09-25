@@ -305,7 +305,7 @@ Private Function DetectHeaderRow(ByVal ws As Worksheet) As Long
 End Function
 
 Private Function FindHeaderColInRow(ByVal ws As Worksheet, ByVal headerRow As Long, ByVal aliases As Variant) As Long
-    Dim lastCol As Long: lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    Dim lastCol As Long: lastCol = ws.Cells(headerRow, ws.Columns.Count).End(xlToLeft).Column
     Dim dict As Object: Set dict = CreateObject("Scripting.Dictionary")
     Dim i As Long
     For i = LBound(aliases) To UBound(aliases)

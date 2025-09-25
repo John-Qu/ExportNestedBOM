@@ -32,10 +32,36 @@ End Function
 Public Function NormalizeName(ByVal s As String) As String
     Dim t As String
     t = CStr(s)
+    ' 标准化行内与跨行空白
     t = Replace$(t, vbCr, " ")
     t = Replace$(t, vbLf, " ")
     t = Replace$(t, "\n", " ")
+    ' 将全角空格与制表符等统一为半角空格
+    t = Replace$(t, ChrW(12288), " ") ' 全角空格
+    t = Replace$(t, vbTab, " ")
+    ' 去除不可见零宽字符（常见 PDF/导出残留）
+    t = Replace$(t, ChrW(&H200B), "") ' Zero Width Space
+    t = Replace$(t, ChrW(&H200C), "") ' Zero Width Non-Joiner
+    t = Replace$(t, ChrW(&H200D), "") ' Zero Width Joiner
+    t = Replace$(t, ChrW(&HFEFF), "") ' BOM
+    ' 归一化多空格
     t = CollapseSpaces(t)
+
+    ' 额外鲁棒性：如果字符串中不包含任何 ASCII 字母或数字，视为纯中文/符号标题，移除所有空格
+    ' 这可修复 A3 模板中列头内断行（如“是否外\n购”、“是否钣\n金”）导致匹配失败的问题
+    Dim i As Long, ch As String, hasAsciiAlnum As Boolean
+    hasAsciiAlnum = False
+    For i = 1 To Len(t)
+        ch = Mid$(t, i, 1)
+        If (ch Like "[A-Za-z0-9]") Then
+            hasAsciiAlnum = True
+            Exit For
+        End If
+    Next i
+    If Not hasAsciiAlnum Then
+        t = Replace$(t, " ", "")
+    End If
+
     NormalizeName = UCase$(t)
 End Function
 
