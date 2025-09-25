@@ -54,8 +54,10 @@ Public Sub RunExportNestedBOM()
     
     Dim startTime As Double: startTime = Timer
 
-    ' 新增：导出前参与性确认（可阻断）
-    If CONFIRM_BEFORE_EXPORT Then
+    ' 新增：导出前参与性确认（可阻断；若已确认则跳过）
+    If HasConfirmOk(drawingPath) Then
+        Logger_Info "检测到参与性确认标记文件，跳过确认环节。"
+    ElseIf CONFIRM_BEFORE_EXPORT Then
         Dim okConfirm As Boolean
         okConfirm = ConfirmSubAssemblyParticipation(swApp, drawingPath)
         If Not okConfirm Then
@@ -111,6 +113,116 @@ EH:
     
     Logger_Error "RunExportNestedBOM 出错：" & Err.Number & ": " & Err.Description & " (来源:" & Err.Source & ")"
     MsgBox errMsg, vbCritical
+End Sub
+
+' 新增独立命令：仅进行“子装配工程图完整性确认”，不导出
+Public Sub ConfirmSubAssemblyCompleteness()
+    On Error GoTo EH
+    InitializeConfig
+    Dim envIssues As String
+    envIssues = ValidateEnvironment()
+    If Len(envIssues) > 0 Then
+        MsgBox "系统环境检查发现问题：" & vbCrLf & envIssues, vbExclamation, "环境检查"
+    End If
+
+    Dim swApp As Object: Set swApp = Application.SldWorks
+    If swApp Is Nothing Then
+        MsgBox "无法连接到SolidWorks应用程序，请确保SolidWorks已正常启动。", vbCritical
+        Exit Sub
+    End If
+
+    Dim drawingPath As String
+    drawingPath = GetTopLevelDrawingPath(swApp)
+    If Len(drawingPath) = 0 Then Exit Sub
+    If Not FileExists(drawingPath) Then
+        MsgBox "选择的文件不存在：" & vbCrLf & drawingPath, vbCritical
+        Exit Sub
+    End If
+
+    Dim logPath As String: logPath = GetLogPathFromDrawing(drawingPath)
+    Logger_Init logPath
+    Logger_Info "=== 开始 子装配工程图完整性确认 ==="
+
+    Dim ok As Boolean
+    ok = ConfirmSubAssemblyParticipation(swApp, drawingPath)
+    If ok Then
+        MsgBox "已确认完成，后续导出将自动跳过此检查。", vbInformation
+    Else
+        MsgBox "您取消了导出或存在阻断性问题，未写入确认标记。", vbExclamation
+    End If
+    Exit Sub
+EH:
+    Logger_Error "ConfirmSubAssemblyCompleteness 出错：" & Err.Number & ": " & Err.Description
+    MsgBox "确认过程出错：" & Err.Description, vbCritical
+End Sub
+
+' 新增独立命令：仅导出（不做确认）
+Public Sub RunExportNestedBOM_Only()
+    On Error GoTo EH
+    
+    ' 初始化配置
+    InitializeConfig
+    
+    ' 验证系统环境
+    Dim envIssues As String
+    envIssues = ValidateEnvironment()
+    If Len(envIssues) > 0 Then
+        MsgBox "系统环境检查发现问题：" & vbCrLf & envIssues & vbCrLf & _
+               "是否继续运行？", vbExclamation + vbYesNo, "环境检查"
+        If vbNo = MsgBox("", vbYesNo) Then Exit Sub
+    End If
+    
+    Dim swApp As Object: Set swApp = Application.SldWorks
+    If swApp Is Nothing Then
+        MsgBox "无法连接到SolidWorks应用程序，请确保SolidWorks已正常启动。", vbCritical
+        Exit Sub
+    End If
+
+    Dim drawingPath As String
+    drawingPath = GetTopLevelDrawingPath(swApp)
+    If Len(drawingPath) = 0 Then Exit Sub
+    If Not FileExists(drawingPath) Then
+        MsgBox "选择的文件不存在：" & vbCrLf & drawingPath, vbCritical
+        Exit Sub
+    End If
+
+    Dim logPath As String: logPath = GetLogPathFromDrawing(drawingPath)
+    Logger_Init logPath
+    Logger_Info "=== 开始 仅导出（跳过确认） ===" 
+
+    Dim summary As Object: Set summary = CreateObject("Scripting.Dictionary")
+    Dim visited As Object: Set visited = CreateObject("Scripting.Dictionary")
+    Dim topAsmName As String: topAsmName = GetFileNameNoExt(drawingPath)
+
+    Dim startTime As Double: startTime = Timer
+    ProcessDrawingRecursive swApp, drawingPath, 1, 0, visited, summary, topAsmName, ""
+
+    Dim endTime As Double: endTime = Timer
+    Logger_Info "递归处理耗时：" & Format(endTime - startTime, "0.00") & " 秒"
+
+    If summary.Count = 0 Then
+        Logger_Warn "未发现任何底层零件，请检查BOM表结构和'是否组装'列设置"
+        MsgBox "处理完成，但未发现底层零件。", vbExclamation
+        Exit Sub
+    End If
+
+    Dim outFolder As String: outFolder = GetFileFolder(drawingPath)
+    Dim summaryXls As String: summaryXls = outFolder & "\" & topAsmName & "_汇总.xls"
+    On Error GoTo EH_Summary
+    WriteSummaryHtmlXls summary, summaryXls
+    Logger_Info "汇总输出：" & summaryXls & " (包含 " & summary.Count & " 种底层零件)"
+
+    MsgBox "仅导出完成：" & vbCrLf & "汇总表：" & summaryXls, vbInformation
+    Exit Sub
+
+EH_Summary:
+    Logger_Error "汇总表生成失败：" & Err.Number & ": " & Err.Description
+    MsgBox "汇总表生成失败，但BOM导出可能已完成。", vbExclamation
+    Exit Sub
+
+EH:
+    Logger_Error "RunExportNestedBOM_Only 出错：" & Err.Number & ": " & Err.Description
+    MsgBox "导出过程出错：" & Err.Description, vbCritical
 End Sub
 
 Private Function GetTopLevelDrawingPath(swApp As Object) As String

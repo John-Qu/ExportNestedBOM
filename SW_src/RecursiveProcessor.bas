@@ -282,11 +282,46 @@ Public Function ConfirmSubAssemblyParticipation(swApp As Object, drawingPath As 
     Dim ans As VbMsgBoxResult
     ans = MsgBox(msg, vbQuestion + vbYesNo, "子装配参与性确认")
     ConfirmSubAssemblyParticipation = (ans = vbYes)
+    If ConfirmSubAssemblyParticipation Then
+        ' 写入确认标记文件，后续可跳过重复检查
+        WriteConfirmOk drawingPath, totalFlagYes, readyCount, cntNoDrw, cntNoBom, cntMissFlag
+        Logger_Info "已写入确认标记：" & GetConfirmOkPath(drawingPath)
+    End If
     Exit Function
 EH:
     Logger_Error "参与性确认出错：" & Err.Number & ": " & Err.Description
     ConfirmSubAssemblyParticipation = True ' 容错：确认环节失败不阻断（可按需调整）
 End Function
+
+' 新增：确认标记文件路径
+Private Function GetConfirmOkPath(drawingPath As String) As String
+    GetConfirmOkPath = GetFileFolder(drawingPath) & "\" & GetFileNameNoExt(drawingPath) & "_参与性确认.ok"
+End Function
+
+' 新增：是否已存在确认标记
+Public Function HasConfirmOk(drawingPath As String) As Boolean
+    HasConfirmOk = FileExists(GetConfirmOkPath(drawingPath))
+End Function
+
+' 新增：写入确认标记文件
+Private Sub WriteConfirmOk(drawingPath As String, totalFlagYes As Long, readyCount As Long, cntNoDrw As Long, cntNoBom As Long, cntMissFlag As Long)
+    On Error GoTo EH
+    Dim p As String: p = GetConfirmOkPath(drawingPath)
+    Dim f As Integer: f = FreeFile
+    Open p For Output As #f
+    Print #f, "timestamp=" & Format$(Now, "yyyy-mm-dd hh:nn:ss")
+    Print #f, "total_flag_yes=" & totalFlagYes
+    Print #f, "ready_count=" & readyCount
+    Print #f, "missing_drawing=" & cntNoDrw
+    Print #f, "missing_bom=" & cntNoBom
+    Print #f, "suspect_missing_flag=" & cntMissFlag
+    Close #f
+    Exit Sub
+EH:
+    On Error Resume Next
+    Close #f
+    Logger_Warn "确认标记写入失败：" & Err.Description
+End Sub
 
 ' 新增：递归扫描参与性状态（不导出，只检查）
 Private Sub ScanParticipationRecursive(swApp As Object, drawingPath As String, depth As Integer, _
@@ -350,6 +385,8 @@ Private Sub ScanParticipationRecursive(swApp As Object, drawingPath As String, d
                     If Not b Is Nothing Then
                         hasBom = True
                         status = "Included-Ready": reason = "可导出（有图+有BOM）"
+                        ' 递归扫描更深层级
+                        ScanParticipationRecursive swApp, childDrw, depth + 1, visited, items
                     Else
                         status = "Skipped-NoBOMTable": reason = "工程图中未找到BOM表"
                     End If
