@@ -125,6 +125,20 @@ Public Sub RenameHeadersAndReorder(ByVal ws As Worksheet)
     cMach = FindHeaderColInRow(ws, headerRow, aMach)
     cSheet = FindHeaderColInRow(ws, headerRow, aSheet)
 
+    ' 修复：若“数量”列标题为空（空格/换行导致），按模板约定它位于“名称”右侧一列，自动补齐为“数量”
+    If cQty = 0 And cName > 0 Then
+        Dim candidateQtyCol As Long: candidateQtyCol = cName + 1
+        Dim maxCol As Long: maxCol = ws.Cells(headerRow, ws.Columns.Count).End(xlToLeft).Column
+        If candidateQtyCol <= maxCol Then
+            Dim rawHeader As String: rawHeader = CStr(ws.Cells(headerRow, candidateQtyCol).Value)
+            If Len(Utils.NormalizeName(rawHeader)) = 0 Then
+                ws.Cells(headerRow, candidateQtyCol).Value = "数量"
+                cQty = candidateQtyCol
+                Logger.LogInfo "Filled blank Qty header at row=" & headerRow & ", col=" & candidateQtyCol & " on sheet " & ws.Name
+            End If
+        End If
+    End If
+
     ' 标题重命名（统一标准名）
     If cPartNo > 0 Then ws.Cells(headerRow, cPartNo).Value = "零件号"
     If cPreview > 0 Then ws.Cells(headerRow, cPreview).Value = "文档预览"
