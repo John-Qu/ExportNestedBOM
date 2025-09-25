@@ -673,3 +673,154 @@ Public Sub ScaleAllPicturesInTotalBOMTo50()
 FAIL:
     Logger.LogError "ScaleAllPicturesInTotalBOMTo50 failed: " & Err.Description
 End Sub
+
+Public Sub BuildCategorySheetsFromTotalBOM()
+    On Error GoTo FAIL
+    Dim wb As Workbook: Set wb = Utils.ResolveTargetWorkbook()
+    If wb Is Nothing Then
+        MsgBox "未找到可处理的目标工作簿（请打开 *_汇总.xls 文件）", vbExclamation
+        Exit Sub
+    End If
+
+    Dim wsTotal As Worksheet
+    On Error Resume Next
+    Set wsTotal = wb.Worksheets("总 BOM 清单")
+    On Error GoTo 0
+    If wsTotal Is Nothing Then
+        MsgBox "未找到工作表：总 BOM 清单（请先生成总表）", vbExclamation
+        Exit Sub
+    End If
+
+    Dim lastRow As Long: lastRow = Utils.LastUsedRow(wsTotal)
+    If lastRow < 2 Then
+        Logger.LogWarn "T7: 总 BOM 清单 无数据行"
+        Exit Sub
+    End If
+
+    ' 识别所需列
+    Dim cBuy As Long, cSheet As Long, cMach As Long 
+    cBuy = Utils.GetColumnIndex(wsTotal, Array("购", "是否外购", "外购", "Purchase", "Is Purchase"))
+    cSheet = Utils.GetColumnIndex(wsTotal, Array("钣", "是否钣金", "钣金", "Sheet Metal", "Is Sheet Metal"))
+    cMach = Utils.GetColumnIndex(wsTotal, Array("加", "是否机加", "机加", "Machining", "Is Machining"))
+
+    If cBuy = 0 And cSheet = 0 And cMach = 0 Then
+        Logger.LogError "T7: 未识别到分类所需列（购/钣/加/名称）"
+        Exit Sub
+    End If
+
+    ' 准备分类目标工作表
+    Dim wsBuy As Worksheet, wsSheet As Worksheet, wsMach As Worksheet, wsCase As Worksheet
+    Set wsBuy = PrepareCategorySheet(wb, "外购件")
+    Set wsSheet = PrepareCategorySheet(wb, "钣金件")
+    Set wsMach = PrepareCategorySheet(wb, "加工中心件")
+
+    ' 拷贝表头 A1:S1
+    wsTotal.Range(wsTotal.Cells(1, 1), wsTotal.Cells(1, 19)).Copy Destination:=wsBuy.Range("A1")
+    wsTotal.Range(wsTotal.Cells(1, 1), wsTotal.Cells(1, 19)).Copy Destination:=wsSheet.Range("A1")
+    wsTotal.Range(wsTotal.Cells(1, 1), wsTotal.Cells(1, 19)).Copy Destination:=wsMach.Range("A1")
+
+    Dim r As Long
+    Dim outBuy As Long: outBuy = 2
+    Dim outSheet As Long: outSheet = 2
+    Dim outMach As Long: outMach = 2
+
+    Dim vBuy As String, vSheet As String, vMach As String 
+    For r = 2 To lastRow
+        vBuy = CStr(wsTotal.Cells(r, cBuy).Value)
+        vSheet = CStr(wsTotal.Cells(r, cSheet).Value)
+        vMach = CStr(wsTotal.Cells(r, cMach).Value)
+
+        ' 外购件：购=●
+        If cBuy > 0 Then
+            If StrComp(vBuy, ICON_TRUE, vbBinaryCompare) = 0 Then
+                CopyRowForCategory wsTotal, r, wsBuy, outBuy
+                outBuy = outBuy + 1
+            End If
+        End If
+        ' 钣金件：钣=●
+        If cSheet > 0 Then
+            If StrComp(vSheet, ICON_TRUE, vbBinaryCompare) = 0 Then
+                CopyRowForCategory wsTotal, r, wsSheet, outSheet
+                outSheet = outSheet + 1
+            End If
+        End If
+        ' 机加件：加=●
+        If cMach > 0 Then
+            If StrComp(vMach, ICON_TRUE, vbBinaryCompare) = 0 Then
+                CopyRowForCategory wsTotal, r, wsMach, outMach
+                outMach = outMach + 1
+            End If
+        End If
+    Next r
+
+    ' 统一格式化与打印设置；隐藏“序号”列（C列）
+    SingleSheetFormatter.FormatSingleBOMSheet wsBuy
+    wsBuy.Columns(3).Hidden = True
+    ' 外购件：按渠道(I) -> 代号(D)排序
+    Dim lastBuy As Long: lastBuy = Utils.LastUsedRow(wsBuy)
+    If lastBuy > 2 Then
+        wsBuy.Range("A1:S" & lastBuy).Sort Key1:=wsBuy.Range("I2"), Order1:=xlAscending, _
+                                            Key2:=wsBuy.Range("D2"), Order2:=xlAscending, _
+                                            Header:=xlYes
+    End If
+    
+    SingleSheetFormatter.FormatSingleBOMSheet wsSheet
+    wsSheet.Columns(3).Hidden = True
+    SingleSheetFormatter.FormatSingleBOMSheet wsMach
+    wsMach.Columns(3).Hidden = True
+
+    ' 导出 PDF
+    Dim p1 As String, p2 As String, p3 As String, p4 As String
+    p1 = PdfExport.ExportWorksheetToPdf(wsBuy)
+    p2 = PdfExport.ExportWorksheetToPdf(wsSheet)
+    p3 = PdfExport.ExportWorksheetToPdf(wsMach)
+    Logger.LogInfo "T7: 分类表生成完成：外购件=" & (outBuy - 2) & ", 钣金件=" & (outSheet - 2) & ", 机加件=" & (outMach - 2)
+    If Len(p1) > 0 Then Logger.LogInfo "PDF: " & p1
+    If Len(p2) > 0 Then Logger.LogInfo "PDF: " & p2
+    If Len(p3) > 0 Then Logger.LogInfo "PDF: " & p3
+    Exit Sub
+FAIL:
+    Logger.LogError "T7: BuildCategorySheetsFromTotalBOM failed: " & Err.Description
+End Sub
+
+Private Function NameMatchesKeywords(ByVal nameText As String, ByVal keywords As Variant) As Boolean
+    Dim t As String: t = CStr(nameText)
+    If Len(t) = 0 Then
+        NameMatchesKeywords = False
+        Exit Function
+    End If
+    Dim k As Variant
+    For Each k In keywords
+        If InStr(1, t, CStr(k), vbTextCompare) > 0 Then
+            NameMatchesKeywords = True
+            Exit Function
+        End If
+    Next k
+    NameMatchesKeywords = False
+End Function
+
+Private Function PrepareCategorySheet(ByVal wb As Workbook, ByVal sheetName As String) As Worksheet
+    On Error Resume Next
+    Application.DisplayAlerts = False
+    Dim ws As Worksheet
+    Set ws = Nothing
+    Set ws = wb.Worksheets(sheetName)
+    If Not ws Is Nothing Then ws.Delete
+    Application.DisplayAlerts = True
+    On Error GoTo 0
+    Set PrepareCategorySheet = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count))
+    PrepareCategorySheet.Name = sheetName
+End Function
+
+Private Sub CopyRowForCategory(ByVal srcWS As Worksheet, ByVal srcRow As Long, ByVal dstWS As Worksheet, ByVal dstRow As Long)
+    Dim c As Long
+    ' 拷贝 A..S（1..19）列的值
+    For c = 1 To 19
+        dstWS.Cells(dstRow, c).Value = srcWS.Cells(srcRow, c).Value
+    Next c
+    ' 复制预览图片：来源为总表 B 列
+    On Error Resume Next
+    Dim copied As Long
+    copied = CopyCellPictures(srcWS, srcRow, 2, dstWS, dstRow, 2)
+    On Error GoTo 0
+End Sub

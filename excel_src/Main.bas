@@ -142,6 +142,10 @@ Public Sub Run_Generate_TotalBOM_FromSummary()
     On Error GoTo FAIL
 
     SummaryProcessor.BuildTotalBOMFromSummary
+    ' 生成后，统一对总表图片执行 50% 缩放（解锁纵横比）
+    ' SummaryProcessor.ScaleAllPicturesInTotalBOMTo50
+    ' 继续按 T7：生成分类表并导出 PDF
+    ' SummaryProcessor.BuildCategorySheetsFromTotalBOM
     
     Logger.LogClose
     Exit Sub
