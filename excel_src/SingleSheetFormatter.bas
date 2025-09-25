@@ -3,7 +3,7 @@ Option Explicit
 Public Sub ApplyToolboxNameReplacement(ByVal ws As Worksheet, ByVal mapping As Object, _
     ByRef replacedCount As Long, ByRef unmatchedCount As Long)
 
-    Dim colE As Long, colI As Long, colJ As Long, colK As Long, colL As Long, colM As Long
+    Dim colE As Long, colI As Long, colJ As Long, colK As Long, colL As Long, colM As Long, colBuy As Long
     colE = Utils.GetColumnIndex(ws, Array("名称", "Name", "NAME", "品名", "零件名称", "部件名称"))
     colI = Utils.GetColumnIndex(ws, Array("SUPPLIER", "Supplier", "渠道", "供应商", "供 应 商", "SUPPLIER ", "供应渠道"))
     colJ = Utils.GetColumnIndex(ws, Array("型号", "型 号", "MODEL", "Model", "规格型号"))
@@ -11,6 +11,8 @@ Public Sub ApplyToolboxNameReplacement(ByVal ws As Worksheet, ByVal mapping As O
     colK = Utils.GetColumnIndex(ws, Array("零件名称", "PART NAME", "Part Name", "PARTNAME", "COMPONENT NAME", "Component Name", "COMPONENT"))
     colL = Utils.GetColumnIndex(ws, Array("规格", "Spec", "SPEC", "SPECIFICATION", "规 格", "规格参数"))
     colM = Utils.GetColumnIndex(ws, Array("标准", "Standard", "STANDARD", "标 准", "执行标准"))
+    ' 购列（是否外购），用于在命中映射时将其标记为“是”，后续由 IconizeBooleanFlags 转为图标
+    colBuy = Utils.GetColumnIndex(ws, Array("购", "是否外购", "外购", "Purchase", "Is Purchase"))
 
     If colE = 0 Or colI = 0 Or colJ = 0 Or colK = 0 Or colL = 0 Or colM = 0 Then
         Logger.LogWarn "Header columns not found in sheet: " & ws.Name
@@ -34,7 +36,7 @@ Public Sub ApplyToolboxNameReplacement(ByVal ws As Worksheet, ByVal mapping As O
     End If
 
     ' 输出识别到的列索引，便于确认是否对齐到 K=零件名称/PART NAME
-    Logger.LogInfo "Detected columns on [" & ws.Name & "]: E(Name)=" & colE & ", I(Supplier)=" & colI & ", J(Model)=" & colJ & ", K(PartName)=" & colK & ", L(Spec)=" & colL & ", M(Standard)=" & colM
+    Logger.LogInfo "Detected columns on [" & ws.Name & "]: E(Name)=" & colE & ", I(Supplier)=" & colI & ", J(Model)=" & colJ & ", K(PartName)=" & colK & ", L(Spec)=" & colL & ", M(Standard)=" & colM & ", Buy(col)=" & colBuy
 
     Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
     If lastRow < 2 Then Exit Sub
@@ -47,6 +49,8 @@ Public Sub ApplyToolboxNameReplacement(ByVal ws As Worksheet, ByVal mapping As O
                 ws.Cells(r, colE).Value = mapping(key)
                 ws.Cells(r, colJ).Value = ws.Cells(r, colL).Value
                 ws.Cells(r, colI).Value = ws.Cells(r, colM).Value
+                ' 命中映射即视为外购件：根据用例 T1 将“是否外购”列标记为“是”，后续会被图标化
+                If colBuy > 0 Then ws.Cells(r, colBuy).Value = "是"
                 ' 清除之前可能存在的标黄
                 ws.Rows(r).Interior.Pattern = xlNone
                 replacedCount = replacedCount + 1
