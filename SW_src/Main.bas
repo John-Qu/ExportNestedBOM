@@ -52,6 +52,16 @@ Public Sub RunExportNestedBOM()
     Dim topAsmName As String
     topAsmName = GetFileNameNoExt(drawingPath)
     
+    ' 会话级输出目录：顶层装配体工程图文件名 + 日期时间戳
+    Dim baseFolder As String: baseFolder = GetFileFolder(drawingPath)
+    Dim sessionOutDir As String: sessionOutDir = CreateSessionOutDir(drawingPath)
+    If Len(sessionOutDir) = 0 Or Not CanWriteToDirectory(sessionOutDir) Then
+        Logger_Warn "无法创建或写入输出目录，将回退至原目录：" & baseFolder
+        sessionOutDir = baseFolder
+    Else
+        Logger_Info "输出目录：" & sessionOutDir
+    End If
+    
     Dim startTime As Double: startTime = Timer
 
     ' 新增：导出前参与性确认（可阻断；若已确认则跳过）
@@ -66,7 +76,7 @@ Public Sub RunExportNestedBOM()
         End If
     End If
 
-    ProcessDrawingRecursive swApp, drawingPath, 1, 0, visited, summary, topAsmName, ""
+    ProcessDrawingRecursive swApp, drawingPath, 1, 0, visited, summary, topAsmName, "", sessionOutDir
     
     Dim endTime As Double: endTime = Timer
     Logger_Info "递归处理耗时：" & Format(endTime - startTime, "0.00") & " 秒"
@@ -80,10 +90,9 @@ Public Sub RunExportNestedBOM()
         Exit Sub
     End If
     
-    ' 输出汇总表为xls(HTML)
-    Dim outFolder As String: outFolder = GetFileFolder(drawingPath)
+    ' 输出汇总表为xls(HTML)到会话目录
     Dim summaryXls As String
-    summaryXls = outFolder & "\" & topAsmName & "_汇总.xls"
+    summaryXls = sessionOutDir & "\" & topAsmName & "_汇总.xls"
     
     On Error GoTo EH_Summary
     WriteSummaryHtmlXls summary, summaryXls
@@ -194,8 +203,18 @@ Public Sub RunExportNestedBOM_Only()
     Dim visited As Object: Set visited = CreateObject("Scripting.Dictionary")
     Dim topAsmName As String: topAsmName = GetFileNameNoExt(drawingPath)
 
+    ' 会话级输出目录：顶层装配体工程图文件名 + 日期时间戳
+    Dim baseFolder As String: baseFolder = GetFileFolder(drawingPath)
+    Dim sessionOutDir As String: sessionOutDir = CreateSessionOutDir(drawingPath)
+    If Len(sessionOutDir) = 0 Or Not CanWriteToDirectory(sessionOutDir) Then
+        Logger_Warn "无法创建或写入输出目录，将回退至原目录：" & baseFolder
+        sessionOutDir = baseFolder
+    Else
+        Logger_Info "输出目录：" & sessionOutDir
+    End If
+
     Dim startTime As Double: startTime = Timer
-    ProcessDrawingRecursive swApp, drawingPath, 1, 0, visited, summary, topAsmName, ""
+    ProcessDrawingRecursive swApp, drawingPath, 1, 0, visited, summary, topAsmName, "", sessionOutDir
 
     Dim endTime As Double: endTime = Timer
     Logger_Info "递归处理耗时：" & Format(endTime - startTime, "0.00") & " 秒"
@@ -206,8 +225,7 @@ Public Sub RunExportNestedBOM_Only()
         Exit Sub
     End If
 
-    Dim outFolder As String: outFolder = GetFileFolder(drawingPath)
-    Dim summaryXls As String: summaryXls = outFolder & "\" & topAsmName & "_汇总.xls"
+    Dim summaryXls As String: summaryXls = sessionOutDir & "\" & topAsmName & "_汇总.xls"
     On Error GoTo EH_Summary
     WriteSummaryHtmlXls summary, summaryXls
     Logger_Info "汇总输出：" & summaryXls & " (包含 " & summary.Count & " 种底层零件)"
@@ -242,4 +260,23 @@ Private Function GetTopLevelDrawingPath(swApp As Object) As String
             End If
         End If
     End If
+End Function
+
+' 创建当前会话输出目录：<顶层装配体名>_yyyymmdd_hhnnss
+Private Function CreateSessionOutDir(drawingPath As String) As String
+    On Error GoTo EH
+    Dim baseFolder As String: baseFolder = GetFileFolder(drawingPath)
+    Dim topName As String: topName = GetFileNameNoExt(drawingPath)
+    Dim stamp As String: stamp = Format$(Now, "yyyymmdd_hhnnss")
+    Dim outDir As String: outDir = baseFolder & "\" & topName & "_" & stamp
+    
+    ' 若不存在则创建
+    If Len(Dir(outDir, vbDirectory)) = 0 Then
+        MkDir outDir
+    End If
+    CreateSessionOutDir = outDir
+    Exit Function
+EH:
+    Logger_Warn "创建输出目录失败：" & Err.Description
+    CreateSessionOutDir = ""
 End Function

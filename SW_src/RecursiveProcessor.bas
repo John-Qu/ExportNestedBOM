@@ -2,7 +2,7 @@
 Option Explicit
 
 Public Sub ProcessDrawingRecursive(swApp As Object, drawingPath As String, depth As Integer, parentQty As Long, _
-    ByRef visited As Object, ByRef summary As Object, ByVal topAsmName As String, ByVal parentChain As String)
+    ByRef visited As Object, ByRef summary As Object, ByVal topAsmName As String, ByVal parentChain As String, ByVal sessionOutDir As String)
     On Error GoTo EH
     If depth > 10 Then
         Logger_Warn "递归深度超限 (>10)：" & drawingPath
@@ -48,9 +48,9 @@ Public Sub ProcessDrawingRecursive(swApp As Object, drawingPath As String, depth
         GoTo CloseDoc
     End If
     
-    ' 导出当前BOM为Excel(xls)并包含图片
+    ' 导出当前BOM为Excel(xls)并包含图片（统一输出到 sessionOutDir）
     Dim outXls As String
-    outXls = GetFileFolder(drawingPath) & "\" & GetFileNameNoExt(drawingPath) & ".xls"
+    outXls = sessionOutDir & "\" & GetFileNameNoExt(drawingPath) & ".xls"
     Dim ok As Boolean
     On Error GoTo EH_Export
     ok = bomAnn.SaveAsExcel(outXls, True, True) ' 包含隐藏列与图片
@@ -58,7 +58,7 @@ Public Sub ProcessDrawingRecursive(swApp As Object, drawingPath As String, depth
     On Error GoTo EH
     
     ' 遍历BOM行，识别"是否组装"列，递归
-    ProcessBOMRows bomAnn, swApp, drawingPath, depth, parentQty, visited, summary, topAsmName, parentChain
+    ProcessBOMRows bomAnn, swApp, drawingPath, depth, parentQty, visited, summary, topAsmName, parentChain, sessionOutDir
 
 CloseDoc:
     On Error Resume Next
@@ -79,30 +79,12 @@ EH:
     Resume Clean
 End Sub
 
-Private Function FindFirstBOM(swDraw As Object) As Object
-    ' 遍历Feature树找到第一个BOM
-    Dim feat As Object: Set feat = swDraw.FirstFeature
-    Do While Not feat Is Nothing
-        If feat.GetTypeName = "BomFeat" Then
-            Dim bf As Object: Set bf = feat.GetSpecificFeature2
-            Dim tables As Variant: tables = bf.GetTableAnnotations
-            If Not IsEmpty(tables) Then
-                Dim ta As Object: Set ta = tables(0)
-                Dim ba As Object: Set ba = ta ' ITableAnnotation -> IBomTableAnnotation
-                Set FindFirstBOM = ba
-                Exit Function
-            End If
-        End If
-        Set feat = feat.GetNextFeature
-    Loop
-End Function
-
 Public Sub ProcessBOMRows(bomAnn As Object, swApp As Object, drawingPath As String, depth As Integer, parentQty As Long, _
-    ByRef visited As Object, ByRef summary As Object, ByVal topAsmName As String, ByVal parentChain As String)
+    ByRef visited As Object, ByRef summary As Object, ByVal topAsmName As String, ByVal parentChain As String, ByVal sessionOutDir As String)
     On Error GoTo EH
     Dim ta As Object: Set ta = bomAnn ' TableAnnotation
-    Dim rows As Long: rows = ta.RowCount ' <mcreference link="https://help.solidworks.com/2017/English/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.ITableAnnotation~RowCount.html" index="2">2</mcreference>
-    Dim cols As Long: cols = ta.ColumnCount ' <mcreference link="https://help.solidworks.com/2016/english/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.ITableAnnotation~ColumnCount.html" index="3">3</mcreference>
+    Dim rows As Long: rows = ta.RowCount ' ...
+    Dim cols As Long: cols = ta.ColumnCount ' ...
     
     Dim colQty As Long: colQty = FindColumnIndex(ta, Array("数量", "QTY", "Qty"))
     Dim colName As Long: colName = FindColumnIndex(ta, Array("名称", "PART NAME", "Name"))
@@ -148,16 +130,12 @@ Public Sub ProcessBOMRows(bomAnn As Object, swApp As Object, drawingPath As Stri
         End If
         
         Dim currentChain As String
-        ' 从工程图文件名中提取代号，以空格为分隔符取前半部分的字母和数字
         Dim asmCode As String
         asmCode = ExtractPartCode(GetFileNameNoExt(drawingPath))
         
         If Len(parentChain) = 0 Then
-            ' 顶层装配体，格式：装配体代号#项目号: 数量
             currentChain = asmCode & "#" & itemNumber & ": " & qty
         Else
-            ' 子装配体，格式：子装配体代号#项目号: 数量 x 上层装配体代号#项目号: 数量
-            ' 使用当前装配体的代号（从工程图路径获取），而不是partNo
             currentChain = asmCode & "#" & itemNumber & ": " & Val(ta.Text(i, colQty)) & " x " & parentChain
         End If
         
@@ -166,7 +144,7 @@ Public Sub ProcessBOMRows(bomAnn As Object, swApp As Object, drawingPath As Stri
             Dim childDrw As String
             childDrw = GetFileFolder(drawingPath) & "\" & partNo & ".slddrw"
             If FileExists(childDrw) Then
-                ProcessDrawingRecursive swApp, childDrw, depth + 1, qty, visited, summary, topAsmName, currentChain
+                ProcessDrawingRecursive swApp, childDrw, depth + 1, qty, visited, summary, topAsmName, currentChain, sessionOutDir
             Else
                 Logger_Warn "未找到子装配体工程图：" & childDrw
             End If
@@ -466,4 +444,30 @@ Private Function CsvEscape(ByVal s As String) As String
     Else
         CsvEscape = s
     End If
+End Function
+
+Private Function FindFirstBOM(swDraw As Object) As Object
+    On Error GoTo EH
+    ' 遍历Feature树找到第一个BOM
+    Dim feat As Object: Set feat = swDraw.FirstFeature
+    Do While Not feat Is Nothing
+        Dim t As String: t = feat.GetTypeName
+        If t = "BomFeat" Or t = "BomFeature" Then
+            Dim bf As Object: Set bf = feat.GetSpecificFeature2
+            If Not bf Is Nothing Then
+                Dim tables As Variant: tables = bf.GetTableAnnotations
+                If Not IsEmpty(tables) Then
+                    Dim ta As Object: Set ta = tables(0) ' ITableAnnotation
+                    Dim ba As Object: Set ba = ta       ' IBomTableAnnotation（晚绑定）
+                    Set FindFirstBOM = ba
+                    Exit Function
+                End If
+            End If
+        End If
+        Set feat = feat.GetNextFeature
+    Loop
+    Exit Function
+EH:
+    Logger_Warn "查找BOM表失败：" & Err.Number & ": " & Err.Description
+    Set FindFirstBOM = Nothing
 End Function
