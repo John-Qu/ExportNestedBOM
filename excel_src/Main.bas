@@ -142,7 +142,7 @@ Public Sub Run_Generate_TotalBOM_FromSummary()
     On Error GoTo FAIL
 
     SummaryProcessor.BuildTotalBOMFromSummary
-
+    
     Logger.LogClose
     Exit Sub
 FAIL:
