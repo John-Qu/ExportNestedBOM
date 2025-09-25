@@ -200,6 +200,32 @@ Private Function MergeSubBOMsIntoWorkbook(ByVal baseDir As String, ByVal topWb A
         Logger.LogInfo "Merge: target workbook unshared and saved: " & topWb.Name
     End If
 
+    ' 将顶层工作簿中的 "Sheet1" 重命名为 顶层装配体清单的文件名（去扩展名）
+    Dim desired As String, targetSheetName As String
+    desired = topWb.Name
+    If InStrRev(desired, ".") > 0 Then desired = Left$(desired, InStrRev(desired, ".") - 1)
+    targetSheetName = MakeUniqueSheetName(topWb, SafeSheetName(desired))
+    Dim wsTop As Worksheet, foundSheet As Worksheet
+    Set foundSheet = Nothing
+    For Each wsTop In topWb.Worksheets
+        If LCase$(Trim$(wsTop.Name)) = "sheet1" Then
+            Set foundSheet = wsTop
+            Exit For
+        End If
+    Next
+    If Not foundSheet Is Nothing Then
+        If StrComp(foundSheet.Name, targetSheetName, vbTextCompare) <> 0 Then
+            On Error Resume Next
+            foundSheet.Name = targetSheetName
+            If Err.Number = 0 Then
+                Logger.LogInfo "Rename: 'Sheet1' -> '" & targetSheetName & "'"
+            Else
+                Logger.LogWarn "Rename: failed to rename 'Sheet1' to '" & targetSheetName & "': " & Err.Description
+                Err.Clear
+            End If
+            On Error GoTo EH
+        End If
+    End If
     f = Dir(baseDir & "\*.xls*")
     Do While f <> ""
         ' 排除当前工作簿、汇总文件、映射宏工作簿与 Excel 临时锁文件
