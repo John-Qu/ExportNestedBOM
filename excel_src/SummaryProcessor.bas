@@ -639,6 +639,19 @@ Private Sub ClearCellShapes(ByVal ws As Worksheet, ByVal row As Long, ByVal col 
     On Error GoTo 0
 End Sub
 
+Private Sub RemoveAllPictureShapes(ByVal ws As Worksheet)
+    On Error Resume Next
+    Dim i As Long
+    For i = ws.Shapes.Count To 1 Step -1
+        Dim shp As Shape
+        Set shp = ws.Shapes(i)
+        If shp.Type = msoPicture Or shp.Type = msoLinkedPicture Then
+            shp.Delete
+        End If
+    Next i
+    On Error GoTo 0
+End Sub
+
 Public Sub ScaleAllPicturesInTotalBOMTo50()
     On Error GoTo FAIL
     Dim wb As Workbook: Set wb = Utils.ResolveTargetWorkbook()
@@ -709,7 +722,7 @@ Public Sub BuildCategorySheetsFromTotalBOM()
     End If
 
     ' 准备分类目标工作表
-    Dim wsBuy As Worksheet, wsSheet As Worksheet, wsMach As Worksheet, wsCase As Worksheet
+    Dim wsBuy As Worksheet, wsSheet As Worksheet, wsMach As Worksheet 
     Set wsBuy = PrepareCategorySheet(wb, "外购件")
     Set wsSheet = PrepareCategorySheet(wb, "钣金件")
     Set wsMach = PrepareCategorySheet(wb, "加工中心件")
@@ -769,12 +782,17 @@ Public Sub BuildCategorySheetsFromTotalBOM()
     SingleSheetFormatter.FormatSingleBOMSheet wsMach
     wsMach.Columns(3).Hidden = True
 
+    ' 删除所有图片对象（避免预览图层叠加）
+    RemoveAllPictureShapes wsBuy
+    RemoveAllPictureShapes wsSheet
+    RemoveAllPictureShapes wsMach
+
     ' 导出 PDF
     Dim p1 As String, p2 As String, p3 As String, p4 As String
     p1 = PdfExport.ExportWorksheetToPdf(wsBuy)
     p2 = PdfExport.ExportWorksheetToPdf(wsSheet)
     p3 = PdfExport.ExportWorksheetToPdf(wsMach)
-    Logger.LogInfo "T7: 分类表生成完成：外购件=" & (outBuy - 2) & ", 钣金件=" & (outSheet - 2) & ", 机加件=" & (outMach - 2)
+    Logger.LogInfo "T7: 分类表生成完成：外购件=" & (outBuy - 2) & ", 钣金件=" & (outSheet - 2) & ", 机加件=" & (outMach - 2) 
     If Len(p1) > 0 Then Logger.LogInfo "PDF: " & p1
     If Len(p2) > 0 Then Logger.LogInfo "PDF: " & p2
     If Len(p3) > 0 Then Logger.LogInfo "PDF: " & p3
