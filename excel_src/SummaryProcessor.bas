@@ -15,7 +15,7 @@ Public Sub BuildTotalBOMFromSummary()
     End If
 
     Dim baseDir As String: baseDir = Utils.WorkbookDir(wb)
-    Logger.LogInfo "T6: Summary workbook=" & wb.Name & ", Dir=" & baseDir
+    Logger.LogInfo "T6: Summary workbook=" & wb.name & ", Dir=" & baseDir
 
     Dim wsSum As Worksheet
     Dim cKey As Long, cQty As Long, cChain As Long, headerRow As Long
@@ -25,7 +25,7 @@ Public Sub BuildTotalBOMFromSummary()
         MsgBox "未在该工作簿中发现可用的 汇总 表（需要包含列：代号/总数量/分解链）", vbCritical
         Exit Sub
     End If
-    Logger.LogInfo "T6: Summary sheet=" & wsSum.Name & _
+    Logger.LogInfo "T6: Summary sheet=" & wsSum.name & _
                   ", headerRow=" & headerRow & ", keyCol=" & cKey & ", qtyCol=" & cQty & ", chainCol=" & cChain
 
     ' 预备输出工作表
@@ -140,7 +140,7 @@ Public Sub BuildTotalBOMFromSummary()
                 copied = CopyCellPictures(oSrcWS, oSrcRow, oPrevCol, wsOut, outRow, 2)
                 Logger.LogInfo "T6: Copied preview pictures=" & copied & " for key='" & key & "'"
                 If copied = 0 Then
-                    Logger.LogWarn "T6: No preview picture found for key='" & key & "' (src='" & oSrcWS.Name & "', row=" & oSrcRow & ", col=" & oPrevCol & ")"
+                    Logger.LogWarn "T6: No preview picture found for key='" & key & "' (src='" & oSrcWS.name & "', row=" & oSrcRow & ", col=" & oPrevCol & ")"
                 End If
                 On Error GoTo ROW_FAIL
             End If
@@ -246,7 +246,7 @@ Private Function PrepareOutputSheet(ByVal wb As Workbook) As Worksheet
     On Error GoTo 0
 
     Set PrepareOutputSheet = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count))
-    PrepareOutputSheet.Name = "总 BOM 清单"
+    PrepareOutputSheet.name = "总 BOM 清单"
 End Function
 
 Private Sub WriteOutputHeader(ByVal ws As Worksheet)
@@ -323,27 +323,27 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
 
                     ' 提取
                     srcValues(1) = key
-                    srcValues(2) = IIf(c文档预览 > 0, ws.Cells(rng.Row, c文档预览).Value, Empty)
-                    srcValues(3) = IIf(c序号 > 0, ws.Cells(rng.Row, c序号).Value, Empty)
-                    srcValues(4) = IIf(c代号 > 0, ws.Cells(rng.Row, c代号).Value, key)
-                    srcValues(5) = IIf(c名称 > 0, ws.Cells(rng.Row, c名称).Value, Empty)
-                    srcValues(6) = IIf(c数量 > 0, ws.Cells(rng.Row, c数量).Value, Empty)
-                    srcValues(7) = IIf(c材料 > 0, ws.Cells(rng.Row, c材料).Value, Empty)
-                    srcValues(8) = IIf(c处理 > 0, ws.Cells(rng.Row, c处理).Value, Empty)
-                    srcValues(9) = IIf(c渠道 > 0, ws.Cells(rng.Row, c渠道).Value, Empty)
-                    srcValues(10) = IIf(cSUP > 0, ws.Cells(rng.Row, cSUP).Value, Empty)
-                    srcValues(11) = IIf(c型号 > 0, ws.Cells(rng.Row, c型号).Value, Empty)
-                    srcValues(12) = IIf(c组 > 0, ws.Cells(rng.Row, c组).Value, Empty)
-                    srcValues(13) = IIf(c购 > 0, ws.Cells(rng.Row, c购).Value, Empty)
-                    srcValues(14) = IIf(c加 > 0, ws.Cells(rng.Row, c加).Value, Empty)
-                    srcValues(15) = IIf(c钣 > 0, ws.Cells(rng.Row, c钣).Value, Empty)
-                    srcValues(16) = IIf(c备注 > 0, ws.Cells(rng.Row, c备注).Value, Empty)
-                    srcValues(17) = IIf(c零件名称 > 0, ws.Cells(rng.Row, c零件名称).Value, Empty)
-                    srcValues(18) = IIf(c规格 > 0, ws.Cells(rng.Row, c规格).Value, Empty)
-                    srcValues(19) = IIf(c标准 > 0, ws.Cells(rng.Row, c标准).Value, Empty)
+                    srcValues(2) = IIf(c文档预览 > 0, ws.Cells(rng.row, c文档预览).Value, Empty)
+                    srcValues(3) = IIf(c序号 > 0, ws.Cells(rng.row, c序号).Value, Empty)
+                    srcValues(4) = IIf(c代号 > 0, ws.Cells(rng.row, c代号).Value, key)
+                    srcValues(5) = IIf(c名称 > 0, ws.Cells(rng.row, c名称).Value, Empty)
+                    srcValues(6) = IIf(c数量 > 0, ws.Cells(rng.row, c数量).Value, Empty)
+                    srcValues(7) = IIf(c材料 > 0, ws.Cells(rng.row, c材料).Value, Empty)
+                    srcValues(8) = IIf(c处理 > 0, ws.Cells(rng.row, c处理).Value, Empty)
+                    srcValues(9) = IIf(c渠道 > 0, ws.Cells(rng.row, c渠道).Value, Empty)
+                    srcValues(10) = IIf(cSUP > 0, ws.Cells(rng.row, cSUP).Value, Empty)
+                    srcValues(11) = IIf(c型号 > 0, ws.Cells(rng.row, c型号).Value, Empty)
+                    srcValues(12) = IIf(c组 > 0, ws.Cells(rng.row, c组).Value, Empty)
+                    srcValues(13) = IIf(c购 > 0, ws.Cells(rng.row, c购).Value, Empty)
+                    srcValues(14) = IIf(c加 > 0, ws.Cells(rng.row, c加).Value, Empty)
+                    srcValues(15) = IIf(c钣 > 0, ws.Cells(rng.row, c钣).Value, Empty)
+                    srcValues(16) = IIf(c备注 > 0, ws.Cells(rng.row, c备注).Value, Empty)
+                    srcValues(17) = IIf(c零件名称 > 0, ws.Cells(rng.row, c零件名称).Value, Empty)
+                    srcValues(18) = IIf(c规格 > 0, ws.Cells(rng.row, c规格).Value, Empty)
+                    srcValues(19) = IIf(c标准 > 0, ws.Cells(rng.row, c标准).Value, Empty)
 
                     Set oSrcWS = ws
-                    oSrcRow = rng.Row
+                    oSrcRow = rng.row
                     oPrevCol = c文档预览
 
                     ExtractRowByKey = True
@@ -355,7 +355,7 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
     ExtractRowByKey = False
     Exit Function
 FAIL:
-    Logger.LogError "ExtractRowByKey failed on workbook '" & wbBOM.Name & "' (sheet='" & IIf(ws Is Nothing, "<unknown>", ws.Name) & "', key='" & key & "'): " & Err.Description
+    Logger.LogError "ExtractRowByKey failed on workbook '" & wbBOM.name & "' (sheet='" & IIf(ws Is Nothing, "<unknown>", ws.name) & "', key='" & key & "'): " & Err.Description
     ExtractRowByKey = False
 End Function
 
@@ -584,7 +584,7 @@ Private Sub GatherBOMWorkbooks(ByVal baseDir As String, ByVal wbSummary As Workb
                 Set wb = Utils.FindOpenWorkbookByName(f)
                 If wb Is Nothing Then
                     On Error Resume Next
-                    Set wb = Application.Workbooks.Open(FileName:=baseDir & "\" & f, ReadOnly:=True)
+                    Set wb = Application.Workbooks.Open(Filename:=baseDir & "\" & f, ReadOnly:=True)
                     If Not wb Is Nothing Then openedBooks.Add wb
                     On Error GoTo 0
                 End If
@@ -598,12 +598,12 @@ Private Sub GatherBOMWorkbooks(ByVal baseDir As String, ByVal wbSummary As Workb
 
     ' 也尝试把当前汇总文件对应的“同名主 BOM 文件”（去掉“_汇总”后）加入搜索优先队列前部
     Dim nameNoSum As String
-    nameNoSum = Replace(wbSummary.Name, "_汇总", "")
-    If StrComp(nameNoSum, wbSummary.Name, vbTextCompare) <> 0 Then
+    nameNoSum = Replace(wbSummary.name, "_汇总", "")
+    If StrComp(nameNoSum, wbSummary.name, vbTextCompare) <> 0 Then
         Dim wbMain As Workbook: Set wbMain = Utils.FindOpenWorkbookByName(nameNoSum)
         If wbMain Is Nothing Then
             On Error Resume Next
-            Set wbMain = Application.Workbooks.Open(FileName:=baseDir & "\" & nameNoSum, ReadOnly:=True)
+            Set wbMain = Application.Workbooks.Open(Filename:=baseDir & "\" & nameNoSum, ReadOnly:=True)
             If Not wbMain Is Nothing Then openedBooks.Add wbMain
             On Error GoTo 0
         End If
@@ -622,17 +622,17 @@ End Sub
 
 Private Sub ClearCellShapes(ByVal ws As Worksheet, ByVal row As Long, ByVal col As Long)
     On Error Resume Next
-    Dim L As Double, T As Double, R As Double, B As Double
+    Dim L As Double, t As Double, r As Double, B As Double
     L = ws.Cells(row, col).Left
-    T = ws.Cells(row, col).Top
-    R = L + ws.Cells(row, col).Width
-    B = T + ws.Cells(row, col).Height
+    t = ws.Cells(row, col).Top
+    r = L + ws.Cells(row, col).Width
+    B = t + ws.Cells(row, col).Height
     Dim s As Shape
     For Each s In ws.Shapes
         Dim cx As Double, cy As Double
         cx = s.Left + s.Width / 2
         cy = s.Top + s.Height / 2
-        If (cx > L And cx < R And cy > T And cy < B) Then
+        If (cx > L And cx < r And cy > t And cy < B) Then
             s.Delete
         End If
     Next s
@@ -711,7 +711,7 @@ Public Sub BuildCategorySheetsFromTotalBOM()
     End If
 
     ' 识别所需列
-    Dim cBuy As Long, cSheet As Long, cMach As Long 
+    Dim cBuy As Long, cSheet As Long, cMach As Long
     cBuy = Utils.GetColumnIndex(wsTotal, Array("购", "是否外购", "外购", "Purchase", "Is Purchase"))
     cSheet = Utils.GetColumnIndex(wsTotal, Array("钣", "是否钣金", "钣金", "Sheet Metal", "Is Sheet Metal"))
     cMach = Utils.GetColumnIndex(wsTotal, Array("加", "是否机加", "机加", "Machining", "Is Machining"))
@@ -722,7 +722,7 @@ Public Sub BuildCategorySheetsFromTotalBOM()
     End If
 
     ' 准备分类目标工作表
-    Dim wsBuy As Worksheet, wsSheet As Worksheet, wsMach As Worksheet 
+    Dim wsBuy As Worksheet, wsSheet As Worksheet, wsMach As Worksheet
     Set wsBuy = PrepareCategorySheet(wb, "外购件")
     Set wsSheet = PrepareCategorySheet(wb, "钣金件")
     Set wsMach = PrepareCategorySheet(wb, "加工中心件")
@@ -737,7 +737,7 @@ Public Sub BuildCategorySheetsFromTotalBOM()
     Dim outSheet As Long: outSheet = 2
     Dim outMach As Long: outMach = 2
 
-    Dim vBuy As String, vSheet As String, vMach As String 
+    Dim vBuy As String, vSheet As String, vMach As String
     For r = 2 To lastRow
         vBuy = CStr(wsTotal.Cells(r, cBuy).Value)
         vSheet = CStr(wsTotal.Cells(r, cSheet).Value)
@@ -792,7 +792,7 @@ Public Sub BuildCategorySheetsFromTotalBOM()
     p1 = PdfExport.ExportWorksheetToPdf(wsBuy)
     p2 = PdfExport.ExportWorksheetToPdf(wsSheet)
     p3 = PdfExport.ExportWorksheetToPdf(wsMach)
-    Logger.LogInfo "T7: 分类表生成完成：外购件=" & (outBuy - 2) & ", 钣金件=" & (outSheet - 2) & ", 机加件=" & (outMach - 2) 
+    Logger.LogInfo "T7: 分类表生成完成：外购件=" & (outBuy - 2) & ", 钣金件=" & (outSheet - 2) & ", 机加件=" & (outMach - 2)
     If Len(p1) > 0 Then Logger.LogInfo "PDF: " & p1
     If Len(p2) > 0 Then Logger.LogInfo "PDF: " & p2
     If Len(p3) > 0 Then Logger.LogInfo "PDF: " & p3
@@ -827,7 +827,7 @@ Private Function PrepareCategorySheet(ByVal wb As Workbook, ByVal sheetName As S
     Application.DisplayAlerts = True
     On Error GoTo 0
     Set PrepareCategorySheet = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count))
-    PrepareCategorySheet.Name = sheetName
+    PrepareCategorySheet.name = sheetName
 End Function
 
 Private Sub CopyRowForCategory(ByVal srcWS As Worksheet, ByVal srcRow As Long, ByVal dstWS As Worksheet, ByVal dstRow As Long)
@@ -842,3 +842,4 @@ Private Sub CopyRowForCategory(ByVal srcWS As Worksheet, ByVal srcRow As Long, B
     copied = CopyCellPictures(srcWS, srcRow, 2, dstWS, dstRow, 2)
     On Error GoTo 0
 End Sub
+

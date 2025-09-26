@@ -226,20 +226,23 @@ Private Function MergeSubBOMsIntoWorkbook(ByVal baseDir As String, ByVal topWb A
             On Error GoTo EH
         End If
     End If
-    f = Dir(baseDir & "\*.xls*")
-    Do While f <> ""
-        ' 排除当前工作簿、汇总文件、映射宏工作簿与 Excel 临时锁文件
-        If StrComp(f, topWb.Name, vbTextCompare) <> 0 _
-           And InStr(1, f, "_汇总", vbTextCompare) = 0 _
-           And StrComp(f, CFG_MAPPING_WORKBOOK_NAME, vbTextCompare) <> 0 _
-           And Left$(f, 2) <> "~$" Then
-
-            ' 打开或复用已打开的工作簿
-            Set wb = Utils.FindOpenWorkbookByName(f)
-            wasAlreadyOpen = Not (wb Is Nothing)
-            If Not wasAlreadyOpen Then
-                Set wb = Application.Workbooks.Open(FileName:=baseDir & "\" & f, ReadOnly:=False)
-            End If
+    Dim scanPattern As String
+        scanPattern = baseDir & Application.PathSeparator & "*.xls*"
+        Logger.LogInfo "Merge: scanning pattern=" & scanPattern
+        f = Dir(scanPattern)
+     Do While f <> ""
+         ' 排除当前工作簿、汇总文件、映射宏工作簿与 Excel 临时锁文件
+         If StrComp(f, topWb.Name, vbTextCompare) <> 0 _
+            And InStr(1, f, "_汇总", vbTextCompare) = 0 _
+            And StrComp(f, CFG_MAPPING_WORKBOOK_NAME, vbTextCompare) <> 0 _
+            And Left$(f, 2) <> "~$" Then
+ 
+             ' 打开或复用已打开的工作簿
+             Set wb = Utils.FindOpenWorkbookByName(f)
+             wasAlreadyOpen = Not (wb Is Nothing)
+             If Not wasAlreadyOpen Then
+                    Set wb = Application.Workbooks.Open(FileName:=baseDir & Application.PathSeparator & f, ReadOnly:=False)
+             End If
 
             ' 源工作簿解除共享（如需）
             Dim srcWasShared As Boolean: srcWasShared = wb.MultiUserEditing
@@ -283,6 +286,9 @@ Private Function MergeSubBOMsIntoWorkbook(ByVal baseDir As String, ByVal topWb A
         End If
         f = Dir()
     Loop
+
+    ' 应用页眉页脚设定到所有工作表
+    ApplyHeaderFooterForAllSheets topWb, baseDir
 
     MergeSubBOMsIntoWorkbook = cnt
     Exit Function
@@ -341,3 +347,118 @@ Private Sub EnsureWorkbookExclusive(ByVal wb As Workbook)
     End If
     On Error GoTo 0
 End Sub
+
+' 为所有工作表设置指定的页眉页脚
+Private Sub ApplyHeaderFooterForAllSheets(ByVal wb As Workbook, ByVal baseDir As String)
+    On Error Resume Next
+    Dim parentName As String: parentName = GetParentFolderName(baseDir)
+    Dim bookNameNoExt As String: bookNameNoExt = wb.Name
+    If InStrRev(bookNameNoExt, ".") > 0 Then bookNameNoExt = Left$(bookNameNoExt, InStrRev(bookNameNoExt, ".") - 1)
+    Dim osUser As String: osUser = GetOSUserName()
+
+    Dim ws As Worksheet
+    For Each ws In wb.Worksheets
+        Dim totalPages As Long: totalPages = GetTotalPagesForSheetExact(ws)
+        With ws.PageSetup
+            .LeftHeader = parentName
+            .CenterHeader = bookNameNoExt
+            .RightHeader = "&A"
+            .LeftFooter = "&D &T"
+            .CenterFooter = "第 &P 页，共 " & CStr(totalPages) & " 页"
+            .RightFooter = osUser
+        End With
+        Logger.LogInfo "HeaderFooter: applied to sheet='" & ws.Name & "', totalPages=" & totalPages
+    Next ws
+    On Error GoTo 0
+End Sub
+
+Private Function GetTotalPagesForSheetExact(ByVal ws As Worksheet) As Long
+    On Error Resume Next
+    Dim prevSheet As Worksheet
+    Set prevSheet = ws.Parent.ActiveSheet
+
+    Dim prevEvents As Boolean: prevEvents = Application.EnableEvents
+    Dim prevUpdating As Boolean: prevUpdating = Application.ScreenUpdating
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
+
+    ws.Activate
+    Dim n As Variant
+    n = ExecuteExcel4Macro("GET.DOCUMENT(50)")
+
+    Dim pages As Long
+    If IsError(n) Then
+        pages = GetTotalPagesForSheet(ws)
+    Else
+        pages = CLng(n)
+        If pages < 1 Then pages = GetTotalPagesForSheet(ws)
+    End If
+
+    If Not prevSheet Is Nothing Then prevSheet.Activate
+    Application.EnableEvents = prevEvents
+    Application.ScreenUpdating = prevUpdating
+
+    GetTotalPagesForSheetExact = pages
+    On Error GoTo 0
+End Function
+
+Private Function GetParentFolderName(ByVal dirPath As String) As String
+    Dim p As String: p = Trim$(dirPath)
+    If Len(p) = 0 Then GetParentFolderName = "": Exit Function
+    ' 去除末尾分隔符（兼容 : / \）
+    Do While Right$(p, 1) = Application.PathSeparator Or Right$(p, 1) = "/" Or Right$(p, 1) = "\"
+        p = Left$(p, Len(p) - 1)
+    Loop
+    ' 先用 Application.PathSeparator 解析
+    Dim sep As String: sep = Application.PathSeparator
+    Dim pos As Long: pos = InStrRev(p, sep)
+    If pos > 1 Then
+        Dim parentPath As String: parentPath = Left$(p, pos - 1)
+        Dim pos2 As Long: pos2 = InStrRev(parentPath, sep)
+        If pos2 > 0 Then
+            GetParentFolderName = Mid$(parentPath, pos2 + 1)
+            Exit Function
+        Else
+            GetParentFolderName = parentPath
+            Exit Function
+        End If
+    End If
+    ' 回退：尝试 / 与 \
+    Dim lastSepSlash As Long: lastSepSlash = InStrRev(p, "/")
+    Dim lastSepBack As Long: lastSepBack = InStrRev(p, "\")
+    Dim lastSep As Long: lastSep = IIf(lastSepSlash > lastSepBack, lastSepSlash, lastSepBack)
+    If lastSep > 1 Then
+        Dim parentPath2 As String: parentPath2 = Left$(p, lastSep - 1)
+        Dim last2Slash As Long: last2Slash = InStrRev(parentPath2, "/")
+        Dim last2Back As Long: last2Back = InStrRev(parentPath2, "\")
+        Dim last2 As Long: last2 = IIf(last2Slash > last2Back, last2Slash, last2Back)
+        If last2 > 0 Then
+            GetParentFolderName = Mid$(parentPath2, last2 + 1)
+        Else
+            GetParentFolderName = parentPath2
+        End If
+    Else
+        GetParentFolderName = ""
+    End If
+End Function
+
+Private Function GetTotalPagesForSheet(ByVal ws As Worksheet) As Long
+    On Error Resume Next
+    ' 计算方法：总页数 ≈ (水平分页数+1) * (垂直分页数+1)
+    ' 该方法在常规自动分页场景下可靠；若有手动分页/缩放变化，会随 PageSetup 自动更新。
+    Dim h As Long: h = ws.HPageBreaks.Count
+    Dim v As Long: v = ws.VPageBreaks.Count
+    Dim pages As Long: pages = (h + 1) * (v + 1)
+    If pages < 1 Then pages = 1
+    GetTotalPagesForSheet = pages
+    On Error GoTo 0
+End Function
+
+' 获取操作系统用户名（优先 USERNAME，其次 USER；最后回退 Excel 用户名）
+Private Function GetOSUserName() As String
+    Dim u As String
+    u = Environ$("USERNAME")
+    If Len(u) = 0 Then u = Environ$("USER")
+    If Len(u) = 0 Then u = Application.UserName
+    GetOSUserName = u
+End Function
