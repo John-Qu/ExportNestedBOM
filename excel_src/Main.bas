@@ -288,7 +288,7 @@ Private Function MergeSubBOMsIntoWorkbook(ByVal baseDir As String, ByVal topWb A
     Loop
 
     ' 应用页眉页脚设定到所有工作表
-    ApplyHeaderFooterForAllSheets topWb, baseDir
+    'ApplyHeaderFooterForAllSheets topWb, baseDir
 
     MergeSubBOMsIntoWorkbook = cnt
     Exit Function
@@ -462,3 +462,31 @@ Private Function GetOSUserName() As String
     If Len(u) = 0 Then u = Application.UserName
     GetOSUserName = u
 End Function
+
+Public Sub Run_Print_AllSheets_Separately()
+    On Error Resume Next
+    Dim ws As Worksheet
+    For Each ws In ActiveWorkbook.Worksheets
+        If ws.Visible = xlSheetVisible Then
+            ws.PrintOut
+        End If
+    Next ws
+    On Error GoTo 0
+End Sub
+
+Public Sub Run_Export_AllSheets_ToPDF()
+    On Error Resume Next
+    Dim wb As Workbook: Set wb = ActiveWorkbook
+    Dim baseDir As String: baseDir = Utils.WorkbookDir(wb)
+    Dim sep As String: sep = Application.PathSeparator
+    Dim ws As Worksheet
+    For Each ws In wb.Worksheets
+        If ws.Visible = xlSheetVisible Then
+            ws.ExportAsFixedFormat Type:=xlTypePDF, _
+                Filename:=baseDir & sep & ws.Name & ".pdf", _
+                Quality:=xlQualityStandard, IncludeDocProperties:=True, _
+                IgnorePrintAreas:=False, OpenAfterPublish:=False
+        End If
+    Next ws
+    On Error GoTo 0
+End Sub
