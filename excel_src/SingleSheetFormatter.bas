@@ -161,6 +161,15 @@ Public Sub RenameHeadersAndReorder(ByVal ws As Worksheet)
 
     Logger.LogInfo "Headers normalized on [" & ws.Name & "] at row=" & headerRow
 
+    ' 若缺少“备注”列但存在“零件名称”列，则在其前插入空白“备注”列，保证列序
+    If cRemark = 0 And cPartName > 0 Then
+        ws.Columns(cPartName).Insert Shift:=xlToRight
+        ws.Cells(headerRow, cPartName).Value = "备注"
+        cRemark = cPartName
+        cPartName = cPartName + 1
+        Logger.LogInfo "Inserted missing [备注] column before [零件名称] on sheet " & ws.Name
+    End If
+
     ' 列顺序调整到最终序
     Dim desired()
     desired = Array("零件号", "文档预览", "序号", "代号", "名称", "数量", _
