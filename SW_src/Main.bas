@@ -95,7 +95,11 @@ Public Sub RunExportNestedBOM()
     summaryXls = sessionOutDir & "\" & topAsmName & "_汇总.xls"
     
     On Error GoTo EH_Summary
-    WriteSummaryHtmlXls summary, summaryXls
+    If FileExists(summaryXls) Then
+        Logger_Info "检测到已有同名汇总表，跳过生成：" & summaryXls
+    Else
+        WriteSummaryHtmlXls summary, summaryXls
+    End If
     Logger_Info "汇总输出：" & summaryXls & " (包含 " & summary.Count & " 种底层零件)"
     
     Logger_Info "=== 处理完成 ==="
@@ -227,7 +231,11 @@ Public Sub RunExportNestedBOM_Only()
 
     Dim summaryXls As String: summaryXls = sessionOutDir & "\" & topAsmName & "_汇总.xls"
     On Error GoTo EH_Summary
-    WriteSummaryHtmlXls summary, summaryXls
++    If FileExists(summaryXls) Then
++        Logger_Info "检测到已有同名汇总表，跳过生成：" & summaryXls
++    Else
++        WriteSummaryHtmlXls summary, summaryXls
++    End If
     Logger_Info "汇总输出：" & summaryXls & " (包含 " & summary.Count & " 种底层零件)"
 
     MsgBox "仅导出完成：" & vbCrLf & "汇总表：" & summaryXls, vbInformation

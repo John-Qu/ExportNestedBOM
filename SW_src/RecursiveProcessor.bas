@@ -52,10 +52,14 @@ Public Sub ProcessDrawingRecursive(swApp As Object, drawingPath As String, depth
     Dim outXls As String
     outXls = sessionOutDir & "\" & GetFileNameNoExt(drawingPath) & ".xls"
     Dim ok As Boolean
-    On Error GoTo EH_Export
-    ok = bomAnn.SaveAsExcel(outXls, True, True) ' 包含隐藏列与图片
-    Logger_Info String(depth * 2, " ") & "导出BOM：" & outXls & " => " & ok
-    On Error GoTo EH
+    If FileExists(outXls) Then
+        Logger_Info String(depth * 2, " ") & "检测到已有同名BOM，跳过导出：" & outXls
+    Else
+        On Error GoTo EH_Export
+        ok = bomAnn.SaveAsExcel(outXls, True, True) ' 包含隐藏列与图片
+        Logger_Info String(depth * 2, " ") & "导出BOM：" & outXls & " => " & ok
+        On Error GoTo EH
+    End If
     
     ' 遍历BOM行，识别"是否组装"列，递归
     ProcessBOMRows bomAnn, swApp, drawingPath, depth, parentQty, visited, summary, topAsmName, parentChain, sessionOutDir
