@@ -2,7 +2,7 @@ Option Explicit
 
 ' 构建“总 BOM 清单”：
 ' - 以当前目标工作簿（通常为“*_汇总.xls”）为驱动，定位“代号/总数量/分解链”列（同一表头行）
-' - 扫描同目录所有不含“汇总”的 *.xls* 子装配/主装配清单文件
+' - 扫描当前合并后的工作簿中的各个子装配工作表（排除“汇总”和“总 BOM 清单”）
 ' - 在这些 BOM 表中按“零件号”精确匹配，复制描述性字段（首次出现优先）
 ' - 在输出表中：F=数量 使用汇总“总数量”；在 O=备注 右侧新增一列“计算说明”承载“分解链”
 ' - 对输出表调用 IconizeBooleanFlags/ApplyFontAndAlignment/ApplyPrintSetup 统一格式
@@ -32,11 +32,11 @@ Public Sub BuildTotalBOMFromSummary()
     Dim wsOut As Worksheet
     Set wsOut = PrepareOutputSheet(wb)
 
-    ' 构建同目录 BOM 工作簿列表（排除 汇总 与 映射/宏 工作簿）
+    ' 构建 BOM 来源集合：仅当前合并后的工作簿
     Dim bomBooks As Collection: Set bomBooks = New Collection
     Dim openedBooks As Collection: Set openedBooks = New Collection
-    GatherBOMWorkbooks baseDir, wb, bomBooks, openedBooks
-    Logger.LogInfo "T6: BOM workbook count=" & bomBooks.Count
+    bomBooks.Add wb
+    Logger.LogInfo "T6: Using current workbook sheets as BOM sources (count=" & wb.Worksheets.Count & ")"
 
     ' 目标字段别名集合（用于从来源行抽取）
     Dim a零件号, a序号, a代号, a名称, a数量, a材料, a处理, a渠道, aSUP, a型号
@@ -91,7 +91,7 @@ Public Sub BuildTotalBOMFromSummary()
             Dim wbBOM As Workbook: Set wbBOM = wbi
             If ExtractRowByKey(wbBOM, key, a零件号, _
                                a文档预览, a序号, a代号, a名称, a数量, a材料, a处理, a渠道, aSUP, a型号, _
-                               a组, a购, a加, a钣, a备注, a零件名称, a规格, a标准, srcValues, oSrcWS, oSrcRow, oPrevCol) Then
+                               a组, a购, a加, a钣, a备注, a零件名称, a规格, a标准, srcValues, oSrcWS, oSrcRow, oPrevCol, Array(wsOut.name, wsSum.name)) Then
                 found = True
                 Exit For
             End If
@@ -273,81 +273,100 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
     ByVal a渠道 As Variant, ByVal aSUP As Variant, ByVal a型号 As Variant, _
     ByVal a组 As Variant, ByVal a购 As Variant, ByVal a加 As Variant, ByVal a钣 As Variant, _
     ByVal a备注 As Variant, ByVal a零件名称 As Variant, ByVal a规格 As Variant, ByVal a标准 As Variant, _
-    ByRef srcValues() As Variant, ByRef oSrcWS As Worksheet, ByRef oSrcRow As Long, ByRef oPrevCol As Long) As Boolean
+    ByRef srcValues() As Variant, ByRef oSrcWS As Worksheet, ByRef oSrcRow As Long, ByRef oPrevCol As Long, _
+    Optional ByVal skipSheets As Variant) As Boolean
 
     On Error GoTo FAIL
     Dim ws As Worksheet
+    Dim skip As Object
+    Dim i As Long
+    If Not IsEmpty(skipSheets) Then
+        Set skip = CreateObject("Scripting.Dictionary")
+        On Error Resume Next
+        skip.CompareMode = vbTextCompare
+        On Error GoTo 0
+        If IsArray(skipSheets) Then
+            For i = LBound(skipSheets) To UBound(skipSheets)
+                skip(CStr(skipSheets(i))) = True
+            Next i
+        Else
+            skip(CStr(skipSheets)) = True
+        End If
+    End If
+
     For Each ws In wbBOM.Worksheets
         If ws.Visible = xlSheetVisible Then
-            Dim cPN As Long: cPN = Utils.GetColumnIndex(ws, a零件号)
-            If cPN > 0 Then
-                Dim rng As Range
-                Dim normKey As String: normKey = Utils.NormalizeName(key)
-                Set rng = ws.Columns(cPN).Find(What:=key, LookIn:=xlValues, LookAt:=xlWhole, _
-                                               SearchOrder:=xlByRows, SearchDirection:=xlNext, MatchCase:=False)
-                If rng Is Nothing Then
-                    ' 回退：按“归一化后的零件号”逐行比对，解决单元格内换行符导致的匹配失败
-                    Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
-                    Dim rr As Long
-                    Dim cellText As String
-                    For rr = 1 To lastRow
-                        cellText = CStr(ws.Cells(rr, cPN).Value)
-                        If Len(cellText) > 0 Then
-                            If Utils.NormalizeName(cellText) = normKey Then
-                                Set rng = ws.Cells(rr, cPN)
-                                Exit For
+            If (skip Is Nothing) Or (Not skip.Exists(ws.name)) Then
+                Dim cPN As Long: cPN = Utils.GetColumnIndex(ws, a零件号)
+                If cPN > 0 Then
+                    Dim rng As Range
+                    Dim normKey As String: normKey = Utils.NormalizeName(key)
+                    Set rng = ws.Columns(cPN).Find(What:=key, LookIn:=xlValues, LookAt:=xlWhole, _
+                                                   SearchOrder:=xlByRows, SearchDirection:=xlNext, MatchCase:=False)
+                    If rng Is Nothing Then
+                        ' 回退：按“归一化后的零件号”逐行比对，解决单元格内换行符导致的匹配失败
+                        Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
+                        Dim rr As Long
+                        Dim cellText As String
+                        For rr = 1 To lastRow
+                            cellText = CStr(ws.Cells(rr, cPN).Value)
+                            If Len(cellText) > 0 Then
+                                If Utils.NormalizeName(cellText) = normKey Then
+                                    Set rng = ws.Cells(rr, cPN)
+                                    Exit For
+                                End If
                             End If
-                        End If
-                    Next rr
-                End If
-                If Not rng Is Nothing Then
-                    ' 定位各列
-                    Dim c文档预览 As Long: c文档预览 = Utils.GetColumnIndex(ws, a文档预览)
-                    Dim c序号 As Long: c序号 = Utils.GetColumnIndex(ws, a序号)
-                    Dim c代号 As Long: c代号 = Utils.GetColumnIndex(ws, a代号)
-                    Dim c名称 As Long: c名称 = Utils.GetColumnIndex(ws, a名称)
-                    Dim c数量 As Long: c数量 = Utils.GetColumnIndex(ws, a数量)
-                    Dim c材料 As Long: c材料 = Utils.GetColumnIndex(ws, a材料)
-                    Dim c处理 As Long: c处理 = Utils.GetColumnIndex(ws, a处理)
-                    Dim c渠道 As Long: c渠道 = Utils.GetColumnIndex(ws, a渠道)
-                    Dim cSUP As Long: cSUP = Utils.GetColumnIndex(ws, aSUP)
-                    Dim c型号 As Long: c型号 = Utils.GetColumnIndex(ws, a型号)
-                    Dim c组 As Long: c组 = Utils.GetColumnIndex(ws, a组)
-                    Dim c购 As Long: c购 = Utils.GetColumnIndex(ws, a购)
-                    Dim c加 As Long: c加 = Utils.GetColumnIndex(ws, a加)
-                    Dim c钣 As Long: c钣 = Utils.GetColumnIndex(ws, a钣)
-                    Dim c备注 As Long: c备注 = Utils.GetColumnIndex(ws, a备注)
-                    Dim c零件名称 As Long: c零件名称 = Utils.GetColumnIndex(ws, a零件名称)
-                    Dim c规格 As Long: c规格 = Utils.GetColumnIndex(ws, a规格)
-                    Dim c标准 As Long: c标准 = Utils.GetColumnIndex(ws, a标准)
+                        Next rr
+                    End If
+                    If Not rng Is Nothing Then
+                        ' 定位各列
+                        Dim c文档预览 As Long: c文档预览 = Utils.GetColumnIndex(ws, a文档预览)
+                        Dim c序号 As Long: c序号 = Utils.GetColumnIndex(ws, a序号)
+                        Dim c代号 As Long: c代号 = Utils.GetColumnIndex(ws, a代号)
+                        Dim c名称 As Long: c名称 = Utils.GetColumnIndex(ws, a名称)
+                        Dim c数量 As Long: c数量 = Utils.GetColumnIndex(ws, a数量)
+                        Dim c材料 As Long: c材料 = Utils.GetColumnIndex(ws, a材料)
+                        Dim c处理 As Long: c处理 = Utils.GetColumnIndex(ws, a处理)
+                        Dim c渠道 As Long: c渠道 = Utils.GetColumnIndex(ws, a渠道)
+                        Dim cSUP As Long: cSUP = Utils.GetColumnIndex(ws, aSUP)
+                        Dim c型号 As Long: c型号 = Utils.GetColumnIndex(ws, a型号)
+                        Dim c组 As Long: c组 = Utils.GetColumnIndex(ws, a组)
+                        Dim c购 As Long: c购 = Utils.GetColumnIndex(ws, a购)
+                        Dim c加 As Long: c加 = Utils.GetColumnIndex(ws, a加)
+                        Dim c钣 As Long: c钣 = Utils.GetColumnIndex(ws, a钣)
+                        Dim c备注 As Long: c备注 = Utils.GetColumnIndex(ws, a备注)
+                        Dim c零件名称 As Long: c零件名称 = Utils.GetColumnIndex(ws, a零件名称)
+                        Dim c规格 As Long: c规格 = Utils.GetColumnIndex(ws, a规格)
+                        Dim c标准 As Long: c标准 = Utils.GetColumnIndex(ws, a标准)
 
-                    ' 提取
-                    srcValues(1) = key
-                    srcValues(2) = IIf(c文档预览 > 0, ws.Cells(rng.row, c文档预览).Value, Empty)
-                    srcValues(3) = IIf(c序号 > 0, ws.Cells(rng.row, c序号).Value, Empty)
-                    srcValues(4) = IIf(c代号 > 0, ws.Cells(rng.row, c代号).Value, key)
-                    srcValues(5) = IIf(c名称 > 0, ws.Cells(rng.row, c名称).Value, Empty)
-                    srcValues(6) = IIf(c数量 > 0, ws.Cells(rng.row, c数量).Value, Empty)
-                    srcValues(7) = IIf(c材料 > 0, ws.Cells(rng.row, c材料).Value, Empty)
-                    srcValues(8) = IIf(c处理 > 0, ws.Cells(rng.row, c处理).Value, Empty)
-                    srcValues(9) = IIf(c渠道 > 0, ws.Cells(rng.row, c渠道).Value, Empty)
-                    srcValues(10) = IIf(cSUP > 0, ws.Cells(rng.row, cSUP).Value, Empty)
-                    srcValues(11) = IIf(c型号 > 0, ws.Cells(rng.row, c型号).Value, Empty)
-                    srcValues(12) = IIf(c组 > 0, ws.Cells(rng.row, c组).Value, Empty)
-                    srcValues(13) = IIf(c购 > 0, ws.Cells(rng.row, c购).Value, Empty)
-                    srcValues(14) = IIf(c加 > 0, ws.Cells(rng.row, c加).Value, Empty)
-                    srcValues(15) = IIf(c钣 > 0, ws.Cells(rng.row, c钣).Value, Empty)
-                    srcValues(16) = IIf(c备注 > 0, ws.Cells(rng.row, c备注).Value, Empty)
-                    srcValues(17) = IIf(c零件名称 > 0, ws.Cells(rng.row, c零件名称).Value, Empty)
-                    srcValues(18) = IIf(c规格 > 0, ws.Cells(rng.row, c规格).Value, Empty)
-                    srcValues(19) = IIf(c标准 > 0, ws.Cells(rng.row, c标准).Value, Empty)
+                        ' 提取
+                        srcValues(1) = key
+                        srcValues(2) = IIf(c文档预览 > 0, ws.Cells(rng.row, c文档预览).Value, Empty)
+                        srcValues(3) = IIf(c序号 > 0, ws.Cells(rng.row, c序号).Value, Empty)
+                        srcValues(4) = IIf(c代号 > 0, ws.Cells(rng.row, c代号).Value, key)
+                        srcValues(5) = IIf(c名称 > 0, ws.Cells(rng.row, c名称).Value, Empty)
+                        srcValues(6) = IIf(c数量 > 0, ws.Cells(rng.row, c数量).Value, Empty)
+                        srcValues(7) = IIf(c材料 > 0, ws.Cells(rng.row, c材料).Value, Empty)
+                        srcValues(8) = IIf(c处理 > 0, ws.Cells(rng.row, c处理).Value, Empty)
+                        srcValues(9) = IIf(c渠道 > 0, ws.Cells(rng.row, c渠道).Value, Empty)
+                        srcValues(10) = IIf(cSUP > 0, ws.Cells(rng.row, cSUP).Value, Empty)
+                        srcValues(11) = IIf(c型号 > 0, ws.Cells(rng.row, c型号).Value, Empty)
+                        srcValues(12) = IIf(c组 > 0, ws.Cells(rng.row, c组).Value, Empty)
+                        srcValues(13) = IIf(c购 > 0, ws.Cells(rng.row, c购).Value, Empty)
+                        srcValues(14) = IIf(c加 > 0, ws.Cells(rng.row, c加).Value, Empty)
+                        srcValues(15) = IIf(c钣 > 0, ws.Cells(rng.row, c钣).Value, Empty)
+                        srcValues(16) = IIf(c备注 > 0, ws.Cells(rng.row, c备注).Value, Empty)
+                        srcValues(17) = IIf(c零件名称 > 0, ws.Cells(rng.row, c零件名称).Value, Empty)
+                        srcValues(18) = IIf(c规格 > 0, ws.Cells(rng.row, c规格).Value, Empty)
+                        srcValues(19) = IIf(c标准 > 0, ws.Cells(rng.row, c标准).Value, Empty)
 
-                    Set oSrcWS = ws
-                    oSrcRow = rng.row
-                    oPrevCol = c文档预览
+                        Set oSrcWS = ws
+                        oSrcRow = rng.row
+                        oPrevCol = c文档预览
 
-                    ExtractRowByKey = True
-                    Exit Function
+                        ExtractRowByKey = True
+                        Exit Function
+                    End If
                 End If
             End If
         End If

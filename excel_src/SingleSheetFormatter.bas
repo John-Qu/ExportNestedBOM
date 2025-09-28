@@ -230,6 +230,9 @@ Public Sub IconizeBooleanFlags(ByVal ws As Worksheet)
         If cSheet > 0 Then cnt = cnt + IconizeOneCell(ws, r, cSheet, trueDict)
     Next r
 
+    ' 在替换图标后，删除末尾无“文档预览”的行
+    DeleteTrailingRowsWithoutPreview ws
+
     Logger.LogInfo "IconizeBooleanFlags done on [" & ws.Name & "]: changed cells=" & cnt
     Exit Sub
 FAIL:
@@ -417,3 +420,77 @@ Public Sub ApplyPrintSetup(ByVal ws As Worksheet)
     End With
     ws.Cells.Borders.LineStyle = xlNone
 End Sub
+
+' ===== 新增：删除末尾无预览行 =====
+Private Sub DeleteTrailingRowsWithoutPreview(ByVal ws As Worksheet)
+    On Error GoTo FIN
+    Dim headerRow As Long: headerRow = DetectHeaderRow(ws)
+    If headerRow = 0 Then headerRow = 1
+
+    Dim aPreview As Variant
+    aPreview = Array("文档预览", "预览", "Preview", "Document Preview")
+    Dim cPreview As Long: cPreview = FindHeaderColInRow(ws, headerRow, aPreview)
+    If cPreview = 0 Then Exit Sub
+
+    Dim lastRow As Long: lastRow = Utils.LastUsedRow(ws)
+    If lastRow <= headerRow Then Exit Sub
+
+    Dim removed As Long: removed = 0
+    Dim r As Long
+    For r = lastRow To headerRow + 1 Step -1
+        If Not CellHasPreview(ws, r, cPreview) Then
+            ws.Rows(r).Delete
+            removed = removed + 1
+        Else
+            Exit For ' 仅删除末尾连续的无预览行
+        End If
+    Next r
+
+    If removed > 0 Then
+        Logger.LogInfo "Deleted trailing rows without preview on [" & ws.Name & "]: " & removed
+    End If
+FIN:
+End Sub
+
+Private Function CellHasPreview(ByVal ws As Worksheet, ByVal rowIndex As Long, ByVal colIndex As Long) As Boolean
+    On Error GoTo SAFE
+    Dim cell As Range: Set cell = ws.Cells(rowIndex, colIndex)
+    Dim txt As String: txt = Trim$(CStr(cell.Value))
+    If Len(txt) > 0 Then
+        CellHasPreview = True
+        Exit Function
+    End If
+
+    Dim left# , top#, right#, bottom#
+    left = cell.Left: top = cell.Top: right = left + cell.Width: bottom = top + cell.Height
+
+    Dim shp As Shape
+    For Each shp In ws.Shapes
+        If shp.Visible Then
+            Dim cx As Double, cy As Double
+            cx = shp.Left + shp.Width / 2
+            cy = shp.Top + shp.Height / 2
+            If cx > left And cx < right And cy > top And cy < bottom Then
+                CellHasPreview = True
+                Exit Function
+            End If
+        End If
+    Next shp
+
+    Dim ole As OLEObject
+    For Each ole In ws.OLEObjects
+        If ole.Visible Then
+            Dim ocx As Double, ocy As Double
+            ocx = ole.Left + ole.Width / 2
+            ocy = ole.Top + ole.Height / 2
+            If ocx > left And ocx < right And ocy > top And ocy < bottom Then
+                CellHasPreview = True
+                Exit Function
+            End If
+        End If
+    Next ole
+
+SAFE:
+    ' 若未命中，视为无预览
+    If Not CellHasPreview Then CellHasPreview = False
+End Function
