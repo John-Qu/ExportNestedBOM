@@ -90,10 +90,10 @@ Public Sub ProcessBOMRows(bomAnn As Object, swApp As Object, drawingPath As Stri
     Dim rows As Long: rows = ta.RowCount ' ...
     Dim cols As Long: cols = ta.ColumnCount ' ...
     
-    Dim colQty As Long: colQty = FindColumnIndex(ta, Array("数量", "QTY", "Qty"))
-    Dim colName As Long: colName = FindColumnIndex(ta, Array("名称", "PART NAME", "Name"))
-    Dim colPartNumber As Long: colPartNumber = FindColumnIndex(ta, Array("零件号", "PART NUMBER", "Part Number", "PARTPATH", "零件路径"))
-    Dim colAssemble As Long: colAssemble = FindColumnIndex(ta, Array("是否组装", "Is Assembly", "组装", "是否组件", "IS ASSEMBLY"))
+    Dim colQty As Long: colQty = FindColumnIndex(ta, GetQuantityColumnNames())
+    Dim colName As Long: colName = FindColumnIndex(ta, GetNameColumnNames())
+    Dim colPartNumber As Long: colPartNumber = FindColumnIndex(ta, GetPartNumberColumnNames())
+    Dim colAssemble As Long: colAssemble = FindColumnIndex(ta, GetAssemblyColumnNames())
     Dim colItemNumber As Long: colItemNumber = FindColumnIndex(ta, Array("项目号", "ITEM NO", "Item", "Item Number", "序号", "项号"))
     Dim colPreview As Long: colPreview = 0 ' 第一列通常为缩略图
     
@@ -179,7 +179,15 @@ End Function
 
 Private Function IsAssembleCell(valText As String) As Boolean
     Dim t As String: t = UCase$(Trim$(valText))
-    IsAssembleCell = (t = "是" Or t = "Y" Or t = "YES" Or t = "TRUE" Or t = "1")
+    Dim names As Variant: names = GetAssemblyTrueValues()
+    Dim i As Long
+    For i = LBound(names) To UBound(names)
+        If UCase$(CStr(names(i))) = t Then
+            IsAssembleCell = True
+            Exit Function
+        End If
+    Next i
+    IsAssembleCell = False
 End Function
 
 Private Sub AddToSummary(ByRef summary As Object, ByVal partNo As String, ByVal partName As String, ByVal qty As Long, ByVal chain As String)
