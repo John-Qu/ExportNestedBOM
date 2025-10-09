@@ -90,16 +90,16 @@ Public Sub ProcessBOMRows(bomAnn As Object, swApp As Object, drawingPath As Stri
     Dim rows As Long: rows = ta.RowCount ' ...
     Dim cols As Long: cols = ta.ColumnCount ' ...
     
-    Dim colQty As Long: colQty = FindColumnIndex(ta, GetQuantityColumnNames())
+    Dim colItemNumber As Long: colItemNumber = FindColumnIndex(ta, Array("项目号", "ITEM NO", "Item", "Item Number", "序号", "项号"))
+    Dim colQty As Long: colQty = DetectQuantityColumn(ta, colItemNumber)
     Dim colName As Long: colName = FindColumnIndex(ta, GetNameColumnNames())
     Dim colPartNumber As Long: colPartNumber = FindColumnIndex(ta, GetPartNumberColumnNames())
     Dim colAssemble As Long: colAssemble = FindColumnIndex(ta, GetAssemblyColumnNames())
-    Dim colItemNumber As Long: colItemNumber = FindColumnIndex(ta, Array("项目号", "ITEM NO", "Item", "Item Number", "序号", "项号"))
     Dim colPreview As Long: colPreview = 0 ' 第一列通常为缩略图
     
     If colQty < 0 Then
-        Logger_Warn "未定位到数量列，默认尝试第D列(3)"
-        colQty = 3 ' 常见：A预览 B项目号 C PART NUMBER D数量
+        Logger_Warn "未定位到数量列，采用最佳猜测列索引"
+        colQty = 3
     End If
     If colPartNumber < 0 Then
         Logger_Warn "未定位到PART NUMBER/代号列，默认尝试第C列(2)"
@@ -115,7 +115,7 @@ Public Sub ProcessBOMRows(bomAnn As Object, swApp As Object, drawingPath As Stri
     End If
     If colItemNumber < 0 Then
         Logger_Warn "未定位到项目号列，默认尝试第B列(1)"
-        colItemNumber = 1 ' 常见：A预览 B项目号 C PART NUMBER D数量
+        colItemNumber = 1
     End If
     
     Dim i As Long
@@ -175,6 +175,75 @@ Private Function FindColumnIndex(ta As Object, names As Variant) As Long
         Next
     Next
     FindColumnIndex = -1
+End Function
+
+Private Function DetectQuantityColumn(ta As Object, ByVal colItemNumber As Long) As Long
+    Dim idx As Long
+    idx = FindColumnIndex(ta, GetQuantityColumnNames())
+    If idx >= 0 Then
+        DetectQuantityColumn = idx
+        Exit Function
+    End If
+
+    Dim rows As Long: rows = ta.RowCount
+    Dim limit As Long: limit = rows - 1
+    If limit > 50 Then limit = 50
+
+    Dim eIdx As Long: eIdx = 4 ' E列
+    Dim dIdx As Long: dIdx = 3 ' D列
+    Dim eScore As Double, dScore As Double
+    eScore = ColumnNumericRatio(ta, eIdx, limit)
+    dScore = ColumnNumericRatio(ta, dIdx, limit)
+
+    If eIdx <> colItemNumber And eScore >= 0.6 Then
+        DetectQuantityColumn = eIdx
+        Exit Function
+    End If
+    If dIdx <> colItemNumber And dScore >= 0.6 Then
+        DetectQuantityColumn = dIdx
+        Exit Function
+    End If
+
+    Dim bestIdx As Long: bestIdx = -1
+    Dim bestScore As Double: bestScore = 0
+    Dim c As Long
+    For c = 0 To ta.ColumnCount - 1
+        If c <> colItemNumber Then
+            Dim s As Double: s = ColumnNumericRatio(ta, c, limit)
+            If s > bestScore Then
+                bestScore = s
+                bestIdx = c
+            End If
+        End If
+    Next c
+    If bestScore >= 0.6 Then
+        DetectQuantityColumn = bestIdx
+    Else
+        DetectQuantityColumn = -1
+    End If
+End Function
+
+Private Function ColumnNumericRatio(ta As Object, ByVal col As Long, ByVal limit As Long) As Double
+    If col < 0 Or col > ta.ColumnCount - 1 Then
+        ColumnNumericRatio = 0
+        Exit Function
+    End If
+    Dim i As Long, cnt As Long, num As Long
+    cnt = 0: num = 0
+    For i = 1 To limit
+        Dim t As String: t = Trim$(ta.Text(i, col))
+        If Len(t) > 0 Then
+            cnt = cnt + 1
+            If IsNumeric(t) Then
+                num = num + 1
+            End If
+        End If
+    Next i
+    If cnt = 0 Then
+        ColumnNumericRatio = 0
+    Else
+        ColumnNumericRatio = num / cnt
+    End If
 End Function
 
 Private Function IsAssembleCell(valText As String) As Boolean
