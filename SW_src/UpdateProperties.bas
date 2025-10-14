@@ -166,7 +166,7 @@ Private Sub BuildPropArrays(ByVal swModel As Object, ByRef names As Variant, ByR
     Dim isSheet As String: isSheet = IIf(IsSheetMetal(swModel), "否", "是")
     
     Dim designer As String: designer = Environ$("USERNAME")
-    Dim createdDate As String: createdDate = GetFileCreatedDate(path)
+    Dim createdDate As String: createdDate = GetInternalCreationDate(swModel)
     
     ' 读取现有自定义属性：型号、SUPPLIER（若无则空）
     Dim modelNo As String: modelNo = GetCustomPropValue(swModel, "型号")
@@ -340,16 +340,19 @@ Private Function GetCustomPropValue(ByVal swModel As Object, ByVal propName As S
 End Function
 
 
-Private Function GetFileCreatedDate(ByVal fullPath As String) As String
+
+' 读取 SolidWorks 文件内部摘要信息中的创建日期
+Private Function GetInternalCreationDate(ByVal swModel As Object) As String
     On Error Resume Next
-    If Len(fullPath) = 0 Then Exit Function
-    Dim fso As Object, f As Object
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    If fso.FileExists(fullPath) Then
-        Set f = fso.GetFile(fullPath)
-        If Not f Is Nothing Then
-            GetFileCreatedDate = Format$(f.DateCreated, "yyyy-mm-dd")
-        End If
+    Dim createDateStr As String
+    ' 12 是 swSumInfoCreateDate 的枚举值，代表创建日期
+    createDateStr = swModel.SummaryInfo(swSumInfoCreateDate)
+    
+    If Len(createDateStr) > 0 Then
+        ' 对API返回的日期字符串进行解析和重新格式化，确保格式统一
+        GetInternalCreationDate = Format$(CDate(createDateStr), "yyyy-mm-dd")
+    Else
+        GetInternalCreationDate = ""
     End If
     On Error GoTo 0
 End Function
@@ -485,3 +488,4 @@ Private Function ContainsAny(ByVal text As String, ByVal targets As Variant) As 
     Next t
     ContainsAny = False
 End Function
+
