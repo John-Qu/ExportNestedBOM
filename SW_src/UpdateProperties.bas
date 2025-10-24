@@ -153,50 +153,59 @@ End Sub
 Private Sub BuildPropArrays(ByVal swModel As Object, ByRef names As Variant, ByRef values As Variant, ByRef fileInfo As String)
     Dim title As String: title = SafeStr(swModel.GetTitle)
     Dim path As String: path = SafeStr(swModel.GetPathName)
-    
+
     Dim fileBase As String, codeStr As String, nameStr As String
     fileBase = BaseNameNoExt(IIf(Len(path) > 0, path, title))
     ParseCodeAndName fileBase, codeStr, nameStr
-    
+
     Dim folderName As String, projCode As String, projName As String
     folderName = ParentFolderName(path)
     ParseProjectFromFolder folderName, projCode, projName
-    
+
     Dim massKg As String: massKg = GetMassKgString(swModel)
-    Dim isSheet As String: isSheet = IIf(IsSheetMetal(swModel), "否", "是")
-    
-    Dim designer As String: designer = Environ$("USERNAME")
-    Dim createdDate As String: createdDate = GetInternalCreationDate(swModel)
-    
-    ' 读取现有自定义属性：型号、SUPPLIER（若无则空）
+
+    Dim createDate As String: createDate = GetInternalCreationDate(swModel)
+
+    ' 读取现有自定义属性（若无则留空）
     Dim modelNo As String: modelNo = GetCustomPropValue(swModel, "型号")
     Dim supplier As String: supplier = GetCustomPropValue(swModel, "SUPPLIER")
-    
-    ' 其他可留空由你填写
-    Dim procStr As String: procStr = ""
-    Dim isBuy As String: isBuy = ""
-    Dim isMach As String: isMach = ""
-    Dim isWeld As String: isWeld = ""
+    Dim procStr As String: procStr = GetCustomPropValue(swModel, "处理")
+    Dim isBuy As String: isBuy = GetCustomPropValue(swModel, "是否采购")
+    Dim isAssm As String: isAssm = GetCustomPropValue(swModel, "是否装配")
+    Dim isMach As String: isMach = GetCustomPropValue(swModel, "是否机加")
+    Dim existingIsSheet As String: existingIsSheet = GetCustomPropValue(swModel, "是否钣金")
+    Dim memo As String: memo = GetCustomPropValue(swModel, "备注")
+    Dim designer As String: designer = GetCustomPropValue(swModel, "设计")
+    If Len(designer) = 0 Then designer = Environ$("USERNAME")
+
+    ' “是否钣金”属性不存在时，回退用几何判断
+    Dim isSheetFlag As String
+    If Len(existingIsSheet) > 0 Then
+        isSheetFlag = existingIsSheet
+    Else
+        isSheetFlag = IIf(IsSheetMetal(swModel), "是", "否")
+    End If
     
     ' 汇总为数组（顺序即界面行顺序）
     Dim n() As String, v() As String
     Dim idx As Long: idx = -1
     
-    AddNV n, v, idx, "名称", nameStr
-    AddNV n, v, idx, "代号", codeStr
-    AddNV n, v, idx, "型号", modelNo
     AddNV n, v, idx, "项目代号", projCode
     AddNV n, v, idx, "项目名称", projName
-    AddNV n, v, idx, "质量", massKg
-    AddNV n, v, idx, "处理方式", procStr
-    AddNV n, v, idx, "是否采购", isBuy
-    AddNV n, v, idx, "是否机加", isMach
-    AddNV n, v, idx, "是否焊接", isWeld
-    AddNV n, v, idx, "是否钣金", isSheet
-    AddNV n, v, idx, "设计", designer
-    AddNV n, v, idx, "定型日期", createdDate
+    AddNV n, v, idx, "代号", codeStr
+    AddNV n, v, idx, "名称", nameStr
     AddNV n, v, idx, "SUPPLIER", supplier
-    
+    AddNV n, v, idx, "型号", modelNo
+    AddNV n, v, idx, "质量", massKg
+    AddNV n, v, idx, "处理", procStr
+    AddNV n, v, idx, "是否装配", isAssm
+    AddNV n, v, idx, "是否采购", isBuy
+    AddNV n, v, idx, "是否钣金", isSheetFlag
+    AddNV n, v, idx, "是否机加", isMach
+    AddNV n, v, idx, "设计", designer
+    AddNV n, v, idx, "定型日期", createDate
+    AddNV n, v, idx, "备注", memo
+
     names = n
     values = v
     
@@ -204,7 +213,6 @@ Private Sub BuildPropArrays(ByVal swModel As Object, ByRef names As Variant, ByR
                "路径: " & path & vbCrLf & _
                "提示：在下方直接编辑值，并勾选需要导入的属性。"
 End Sub
-
 
 ' 同时写入：文档级(自定义) 和 当前配置(配置特定)，采用“先删后增”的强力模式
 Private Sub WriteSelectedProps(ByVal swModel As Object, ByVal names As Variant, ByVal values As Variant, ByVal checks As Variant)
@@ -231,19 +239,13 @@ End Sub
 Private Sub WriteProp_DeleteAndAdd(ByVal cpm As Object, ByVal propName As String, ByVal propValue As String)
     If cpm Is Nothing Then Exit Sub
     On Error Resume Next
-    
     ' 1. 先尝试删除，清除任何可能存在的残留状态
     cpm.Delete propName
-    
     ' 2. 再用 Add2 新建为“文本”类型。这是最可靠的新增方法。
     '    swCustomInfoText 就是我们之前定义的常量 30
     cpm.Add2 propName, swCustomInfoText, propValue
-    
     On Error GoTo 0
 End Sub
-
-
-
 
 ' ===== 工具函数 =====
 
@@ -339,15 +341,11 @@ Private Function GetCustomPropValue(ByVal swModel As Object, ByVal propName As S
     On Error GoTo 0
 End Function
 
-
-
 ' 读取 SolidWorks 文件内部摘要信息中的创建日期
 Private Function GetInternalCreationDate(ByVal swModel As Object) As String
     On Error Resume Next
     Dim createDateStr As String
-    ' 12 是 swSumInfoCreateDate 的枚举值，代表创建日期
     createDateStr = swModel.SummaryInfo(swSumInfoCreateDate)
-    
     If Len(createDateStr) > 0 Then
         ' 对API返回的日期字符串进行解析和重新格式化，确保格式统一
         GetInternalCreationDate = Format$(CDate(createDateStr), "yyyy-mm-dd")
@@ -488,4 +486,3 @@ Private Function ContainsAny(ByVal text As String, ByVal targets As Variant) As 
     Next t
     ContainsAny = False
 End Function
-
