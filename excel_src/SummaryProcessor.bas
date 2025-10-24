@@ -35,8 +35,8 @@ Public Sub BuildTotalBOMFromSummary()
     ' 构建 BOM 来源集合：仅当前合并后的工作簿
     Dim bomBooks As Collection: Set bomBooks = New Collection
     Dim openedBooks As Collection: Set openedBooks = New Collection
-    bomBooks.Add wb
-    Logger.LogInfo "T6: Using current workbook sheets as BOM sources (count=" & wb.Worksheets.Count & ")"
+    GatherBomWorkbooks baseDir, wb, bomBooks, openedBooks
+    Logger.LogInfo "T6: Using current workbook sheets as BOM sources (count=" & bomBooks.Count & ")"
 
     ' 目标字段别名集合（用于从来源行抽取）
     Dim a零件号, a序号, a代号, a名称, a数量, a材料, a处理, a渠道, aSUP, a型号
@@ -91,7 +91,7 @@ Public Sub BuildTotalBOMFromSummary()
             Dim wbBOM As Workbook: Set wbBOM = wbi
             If ExtractRowByKey(wbBOM, key, a零件号, _
                                a文档预览, a序号, a代号, a名称, a数量, a材料, a处理, a渠道, aSUP, a型号, _
-                               a组, a购, a加, a钣, a备注, a零件名称, a规格, a标准, srcValues, oSrcWS, oSrcRow, oPrevCol, Array(wsOut.name, wsSum.name)) Then
+                               a组, a购, a加, a钣, a备注, a零件名称, a规格, a标准, srcValues, oSrcWS, oSrcRow, oPrevCol) Then
                 found = True
                 Exit For
             End If
@@ -273,30 +273,12 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
     ByVal a渠道 As Variant, ByVal aSUP As Variant, ByVal a型号 As Variant, _
     ByVal a组 As Variant, ByVal a购 As Variant, ByVal a加 As Variant, ByVal a钣 As Variant, _
     ByVal a备注 As Variant, ByVal a零件名称 As Variant, ByVal a规格 As Variant, ByVal a标准 As Variant, _
-    ByRef srcValues() As Variant, ByRef oSrcWS As Worksheet, ByRef oSrcRow As Long, ByRef oPrevCol As Long, _
-    Optional ByVal skipSheets As Variant) As Boolean
+    ByRef srcValues() As Variant, ByRef oSrcWS As Worksheet, ByRef oSrcRow As Long, ByRef oPrevCol As Long) As Boolean
 
     On Error GoTo FAIL
     Dim ws As Worksheet
-    Dim skip As Object
-    Dim i As Long
-    If Not IsEmpty(skipSheets) Then
-        Set skip = CreateObject("Scripting.Dictionary")
-        On Error Resume Next
-        skip.CompareMode = vbTextCompare
-        On Error GoTo 0
-        If IsArray(skipSheets) Then
-            For i = LBound(skipSheets) To UBound(skipSheets)
-                skip(CStr(skipSheets(i))) = True
-            Next i
-        Else
-            skip(CStr(skipSheets)) = True
-        End If
-    End If
-
     For Each ws In wbBOM.Worksheets
         If ws.Visible = xlSheetVisible Then
-            If (skip Is Nothing) Or (Not skip.Exists(ws.name)) Then
                 Dim cPN As Long: cPN = Utils.GetColumnIndex(ws, a零件号)
                 If cPN > 0 Then
                     Dim rng As Range
@@ -368,7 +350,6 @@ Private Function ExtractRowByKey(ByVal wbBOM As Workbook, ByVal key As String, _
                         Exit Function
                     End If
                 End If
-            End If
         End If
     Next ws
     ExtractRowByKey = False
