@@ -325,7 +325,7 @@ Private Function GetCustomPropValue(ByVal swModel As Object, ByVal propName As S
     Dim cpmCfg As Object: Set cpmCfg = swModel.Extension.CustomPropertyManager(cfgName)
     If Not cpmCfg Is Nothing Then
         ret = cpmCfg.Get6(propName, False, rawVal, resVal, wasResolved, linkToText)
-        If ret = 1 Then valOut = IIf(Len(resVal) > 0, resVal, rawVal)
+        If ret = 2 Then valOut = IIf(Len(resVal) > 0, resVal, rawVal)
     End If
     
     ' 2. 如果在“配置特定”中没找到，则回退到“自定义”（文档级）属性
@@ -333,7 +333,7 @@ Private Function GetCustomPropValue(ByVal swModel As Object, ByVal propName As S
         Dim cpmDoc As Object: Set cpmDoc = swModel.Extension.CustomPropertyManager("")
         If Not cpmDoc Is Nothing Then
             ret = cpmDoc.Get6(propName, False, rawVal, resVal, wasResolved, linkToText)
-            If ret = 1 Then valOut = IIf(Len(resVal) > 0, resVal, rawVal)
+            If ret = 2 Then valOut = IIf(Len(resVal) > 0, resVal, rawVal)
         End If
     End If
     
