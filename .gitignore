@@ -35,3 +35,6 @@ Desktop.ini
 # 其他项目特定忽略
 /temp/
 /output/
+
+# Local demo videos (keep local; do not push to GitHub)
+doc/assets/videos/*.mp4
