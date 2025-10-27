@@ -1,0 +1,18 @@
+=== START 2025/10/25 14:30:15 ===
+2025-10-25 14:30:15 [INFO] Formatting sheet=BE101-01Z-01Z 四柱总装
+2025-10-25 14:30:15 [INFO] Headers normalized on [BE101-01Z-01Z 四柱总装] at row=1
+2025-10-25 14:30:15 [INFO] Reordered columns on [BE101-01Z-01Z 四柱总装] to final sequence A:R
+2025-10-25 14:30:15 [INFO] IconizeBooleanFlags done on [BE101-01Z-01Z 四柱总装]: changed cells=0
+2025-10-25 14:30:16 [INFO] FormatSingleBOMSheet done on [BE101-01Z-01Z 四柱总装]
+2025-10-25 14:30:16 [INFO] Formatting sheet=BE101-01Z-02Z 立柱套装
+2025-10-25 14:30:16 [INFO] Headers normalized on [BE101-01Z-02Z 立柱套装] at row=1
+2025-10-25 14:30:16 [INFO] Reordered columns on [BE101-01Z-02Z 立柱套装] to final sequence A:R
+2025-10-25 14:30:16 [INFO] IconizeBooleanFlags done on [BE101-01Z-02Z 立柱套装]: changed cells=0
+2025-10-25 14:30:16 [INFO] FormatSingleBOMSheet done on [BE101-01Z-02Z 立柱套装]
+2025-10-25 14:30:16 [INFO] Formatting sheet=BE101-01Z-04Z 烟囱与圈
+2025-10-25 14:30:16 [INFO] Headers normalized on [BE101-01Z-04Z 烟囱与圈] at row=1
+2025-10-25 14:30:16 [INFO] Reordered columns on [BE101-01Z-04Z 烟囱与圈] to final sequence A:R
+2025-10-25 14:30:16 [INFO] IconizeBooleanFlags done on [BE101-01Z-04Z 烟囱与圈]: changed cells=0
+2025-10-25 14:30:16 [INFO] FormatSingleBOMSheet done on [BE101-01Z-04Z 烟囱与圈]
+2025-10-25 14:30:16 [INFO] DONE: formatted all visible sheets
+=== END 2025/10/25 14:30:16 ===

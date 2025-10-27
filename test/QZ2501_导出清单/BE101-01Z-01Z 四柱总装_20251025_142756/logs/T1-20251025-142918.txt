@@ -1,0 +1,22 @@
+=== START 2025/10/25 14:29:18 ===
+2025-10-25 14:29:18 [INFO] Target Workbook=BE101-01Z-01Z 四柱总装.xls, Dir=C:\Projects\QZ2501_导出清单\BE101-01Z-01Z 四柱总装_20251025_142756
+2025-10-25 14:29:18 [INFO] Headers normalized on [BE101-01Z-01Z 四柱总装] at row=1
+2025-10-25 14:29:18 [INFO] Reordered columns on [BE101-01Z-01Z 四柱总装] to final sequence A:R
+2025-10-25 14:29:18 [INFO] Mapping loaded: entries=2 from FomatBOM_ExportPDF.xlsm!ToolboxNames
+2025-10-25 14:29:18 [INFO] Detected columns on [BE101-01Z-01Z 四柱总装]: E(Name)=5, I(Supplier)=9, J(Model)=10, K(PartName)=16, L(Spec)=17, M(Standard)=18, Buy(col)=12
+2025-10-25 14:29:18 [INFO] Sheet [BE101-01Z-01Z 四柱总装] replaced=0, unmatched=0
+2025-10-25 14:29:18 [INFO] IconizeBooleanFlags done on [BE101-01Z-01Z 四柱总装]: changed cells=8
+2025-10-25 14:29:18 [INFO] Headers normalized on [BE101-01Z-02Z 立柱套装] at row=1
+2025-10-25 14:29:18 [INFO] Reordered columns on [BE101-01Z-02Z 立柱套装] to final sequence A:R
+2025-10-25 14:29:18 [INFO] Mapping loaded: entries=2 from FomatBOM_ExportPDF.xlsm!ToolboxNames
+2025-10-25 14:29:18 [INFO] Detected columns on [BE101-01Z-02Z 立柱套装]: E(Name)=5, I(Supplier)=9, J(Model)=10, K(PartName)=16, L(Spec)=17, M(Standard)=18, Buy(col)=12
+2025-10-25 14:29:18 [INFO] Sheet [BE101-01Z-02Z 立柱套装] replaced=2, unmatched=0
+2025-10-25 14:29:18 [INFO] IconizeBooleanFlags done on [BE101-01Z-02Z 立柱套装]: changed cells=20
+2025-10-25 14:29:18 [INFO] Headers normalized on [BE101-01Z-04Z 烟囱与圈] at row=1
+2025-10-25 14:29:18 [INFO] Reordered columns on [BE101-01Z-04Z 烟囱与圈] to final sequence A:R
+2025-10-25 14:29:18 [INFO] Mapping loaded: entries=2 from FomatBOM_ExportPDF.xlsm!ToolboxNames
+2025-10-25 14:29:18 [INFO] Detected columns on [BE101-01Z-04Z 烟囱与圈]: E(Name)=5, I(Supplier)=9, J(Model)=10, K(PartName)=16, L(Spec)=17, M(Standard)=18, Buy(col)=12
+2025-10-25 14:29:18 [INFO] Sheet [BE101-01Z-04Z 烟囱与圈] replaced=2, unmatched=0
+2025-10-25 14:29:18 [INFO] IconizeBooleanFlags done on [BE101-01Z-04Z 烟囱与圈]: changed cells=8
+2025-10-25 14:29:18 [INFO] DONE: all visible sheets processed; Log=C:\Projects\QZ2501_导出清单\BE101-01Z-01Z 四柱总装_20251025_142756\logs\T1-20251025-142918.txt
+=== END 2025/10/25 14:29:18 ===

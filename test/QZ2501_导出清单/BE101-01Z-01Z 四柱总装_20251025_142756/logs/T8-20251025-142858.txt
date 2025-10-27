@@ -1,0 +1,14 @@
+=== START 2025/10/25 14:28:58 ===
+2025-10-25 14:28:58 [INFO] Merge: top workbook=BE101-01Z-01Z 四柱总装.xls, baseDir=C:\Projects\QZ2501_导出清单\BE101-01Z-01Z 四柱总装_20251025_142756
+2025-10-25 14:28:58 [INFO] ExclusiveAccess: unshared 'BE101-01Z-01Z 四柱总装.xls'
+2025-10-25 14:28:58 [INFO] Merge: target workbook unshared and saved: BE101-01Z-01Z 四柱总装.xls
+2025-10-25 14:28:58 [INFO] Rename: 'Sheet1' -> 'BE101-01Z-01Z 四柱总装'
+2025-10-25 14:28:58 [INFO] Merge: scanning pattern=C:\Projects\QZ2501_导出清单\BE101-01Z-01Z 四柱总装_20251025_142756\*.xls*
+2025-10-25 14:28:59 [INFO] ExclusiveAccess: unshared 'BE101-01Z-02Z 立柱套装.xls'
+2025-10-25 14:28:59 [INFO] Merge: source workbook unshared: BE101-01Z-02Z 立柱套装.xls
+2025-10-25 14:28:59 [INFO] Merge: copied sheet from 'BE101-01Z-02Z 立柱套装.xls' as 'BE101-01Z-02Z 立柱套装'
+2025-10-25 14:28:59 [INFO] ExclusiveAccess: unshared 'BE101-01Z-04Z 烟囱与圈.xls'
+2025-10-25 14:28:59 [INFO] Merge: source workbook unshared: BE101-01Z-04Z 烟囱与圈.xls
+2025-10-25 14:28:59 [INFO] Merge: copied sheet from 'BE101-01Z-04Z 烟囱与圈.xls' as 'BE101-01Z-04Z 烟囱与圈'
+2025-10-25 14:28:59 [INFO] Merge: DONE. merged sheets=2; Log=C:\Projects\QZ2501_导出清单\BE101-01Z-01Z 四柱总装_20251025_142756\logs\T8-20251025-142858.txt
+=== END 2025/10/25 14:28:59 ===

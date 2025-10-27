@@ -1,0 +1,15 @@
+=== START 2025/10/25 14:31:53 ===
+2025-10-25 14:31:53 [INFO] T6: Summary workbook=BE101-01Z-01Z 四柱总装_汇总.xls, Dir=C:\Projects\QZ2501_导出清单
+2025-10-25 14:31:53 [INFO] T6: Summary sheet=BE101-01Z-01Z 四柱总装_汇总, headerRow=7, keyCol=1, qtyCol=3, chainCol=4
+2025-10-25 14:31:53 [INFO] T6: Using current workbook sheets as BOM sources (count=2)
+2025-10-25 14:31:53 [INFO] T6: Summary lastSumRow=14
+2025-10-25 14:31:53 [INFO] T6: Copied preview pictures=1 for key='BE101-01Z-003 四孔平板'
+2025-10-25 14:31:53 [INFO] T6: Copied preview pictures=1 for key='BE101-01Z-004 中空立柱'
+2025-10-25 14:31:53 [INFO] T6: Copied preview pictures=1 for key='BE101-01Z-006 轴承外圈'
+2025-10-25 14:31:53 [INFO] T6: Copied preview pictures=1 for key='BE101-01Z-005 四眼小板'
+2025-10-25 14:31:53 [INFO] T6: Copied preview pictures=1 for key='GB_FASTENER_WASHER_SMWC 6'
+2025-10-25 14:31:53 [INFO] T6: Copied preview pictures=1 for key='GB_FASTENER_BOLT_HHBFTC M6X20-N'
+2025-10-25 14:31:53 [INFO] T6: Copied preview pictures=1 for key='BE101-01Z-03Z 滚珠轴承'
+2025-10-25 14:31:53 [INFO] IconizeBooleanFlags done on [总 BOM 清单]: changed cells=0
+2025-10-25 14:31:53 [INFO] T6: DONE. Output sheet='总 BOM 清单', rows=7
+=== END 2025/10/25 14:31:53 ===
