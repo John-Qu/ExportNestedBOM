@@ -12,8 +12,8 @@
 - 目标
   - 自动完成 Toolbox 英文名到中文名的替换与字段回填。
   - 统一整理列顺序、列标题、对齐方式、字体格式、打印区域与页眉页脚。
-  - 使用 PDFCreator 将每个工作表导出为 PDF。
-  - 对“顶层装配体_汇总”驱动的“总 BOM 汇总”进行每行信息统一汇总、去重与分类，并输出 PDF。
+  - 使用 Excel 的 ExportAsFixedFormat 将每个工作表导出为 PDF；如需队列合并，PDFCreator 作为可选组件。
+  - 对“顶层装配体_汇总”驱动的“总 BOM 清单”进行每行信息统一汇总、去重与分类，并输出 PDF。
   - 对主模型 PDF，将其下属子装配工程图 PDF 与清单自动合并生成完整装配用清单。
 
 2. 术语与缩写
@@ -27,7 +27,7 @@
 - 运行环境：
   - 生产环境 Windows 10；测试环境 macos 上 parallel desktop 里的 Windows 11
   - 生产环境 Microsoft Excel 2016；测试环境：windows虚拟机内 WPS（含 VBA 插件）
-  - PDFCreator（支持 COM 自动化）
+  - PDFCreator（支持 COM 自动化，作为可选合并组件）
   - SolidWorks 2019（用于前置导出，不参与 Excel 整理环节）
 
 4. 输入与输出

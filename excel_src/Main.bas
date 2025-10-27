@@ -1,5 +1,14 @@
 Option Explicit
 
+' ExportNestedBOM - Excel 侧入口与调度
+' 入口过程（与 README/用户指南一致）：
+' - Run_Merge_SubBOMs_Into_CurrentWorkbook：合并子装配清单到当前工作簿
+' - Run_Format_CurrentSheet / Run_Format_AllVisibleSheets：单表/全部格式化
+' - Run_FormatAndExport_CurrentWorkbook：格式化并分表导出 PDF（ExportAsFixedFormat）
+' - Run_Generate_TotalBOM_FromSummary：基于“汇总”生成“总 BOM 清单”（跳过“汇总”“总 BOM 清单”）
+' - Run_Export_AllSheets_ToPDF / Run_Print_AllSheets_Separately：分表导出 PDF / 分表打印
+' 注意：路径统一使用 Application.PathSeparator；PDF 合并为可选功能，默认不启用。
+
 Public Sub T1_Run_ToolboxReplace_ActiveSheet()
     Dim wb As Workbook: Set wb = Utils.ResolveTargetWorkbook()
     If wb Is Nothing Then

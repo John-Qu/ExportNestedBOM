@@ -6,6 +6,14 @@
 '========================================================
 Option Explicit
 
+' ExportNestedBOM - SolidWorks 侧属性批量工具
+' 入口：Run_AddCustomProps（窗体驱动），支持处理当前打开文档或选择文件夹批量。
+' 行为概述：
+' - 读取已有自定义属性（型号、SUPPLIER/渠道、处理、是否组装/外购/机加/钣金等），不覆盖非空值。
+' - 缺省回退：若“是否钣金”未设置，按几何判断 IsSheetMetal() 回填“是/否”。
+' - 写入策略：优先文档级（Custom），可选配置级（当前配置），Delete+Add2 文本类型。
+' - 记录：通过 Logger 输出关键步骤与统计。
+
 ' SolidWorks doc type constants
 Private Const swDocPART As Long = 1
 Private Const swDocASSEMBLY As Long = 2
