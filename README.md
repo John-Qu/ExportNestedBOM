@@ -56,3 +56,10 @@ SolidWorks 侧宏入口（SW_src）
 
 更多文档
 - 请查看 doc/ 用户使用指南、开发者指南、架构设计与变更日志。
+
+演示
+- 点击下方封面图可在 B 站观看完整演示视频：
+
+[![嵌套导出 SolidWorks 装配图 BOM 清单后汇总批量整理格式打印（点击播放）](doc/assets/images/sw-props-batch-demo-cover.png)](https://www.bilibili.com/video/BV1qBs2zgEza/?share_source=copy_web&vd_source=46b442d5945851ac54cb808b8620a52d)
+
+- 若外链不可达，可前往 `doc/用户使用指南.md` 查看离线备份与关键帧截图。
